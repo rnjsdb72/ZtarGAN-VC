@@ -8,6 +8,7 @@ import warnings
 warnings.filterwarnings(action='ignore')
 import librosa
 import torch
+from torch.nn.utils.rnn import pad_sequence
 
 def mp3_to_mel(n_fft = 2048, n_mels = 256, hop_length = 512,
                win_length = 2048):
