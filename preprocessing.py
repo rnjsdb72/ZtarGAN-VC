@@ -33,9 +33,11 @@ def mp3_to_mel(n_fft = 2048, n_mels = 256, hop_length = 512,
     lst = []
     for res in res_lst:
         lst += [*torch.tensor(res)]
-    res = pad_sequence(res_lst, batch_first=True).view(num_data,256,-1)
+    res = pad_sequence(lst, batch_first=True).view(num_data,256,-1)
+    if not os.path.exists('./data'):
+        os.makedirs('./data')
     torch.save(res, './data/dataset_audio.pt')
-    pd.DataFrame({'title':title_lst}).to_csv('titles.csv', index=False)
+    pd.DataFrame({'title':title_lst}).to_csv('./data/titles.csv', index=False)
     print('Convert Complete!')
     print('Number of Error: ', error)
     print('Error List:')
