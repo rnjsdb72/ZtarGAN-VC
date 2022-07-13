@@ -18,7 +18,7 @@ def mp3_to_mel(n_fft = 2048, n_mels = 256, hop_length = 512,
     title_lst = []
     files = sorted(glob('./download/*.mp3'))
     print('Start Converting!')
-    for file in tqdm(files):
+    for idx, file in enumerate(tqdm(files)):
         try:
             sig, sr = librosa.load(file)
             mel_spec = librosa.feature.melspectrogram(sig, sr=sr, n_fft=n_fft, n_mels=n_mels, 
@@ -29,15 +29,19 @@ def mp3_to_mel(n_fft = 2048, n_mels = 256, hop_length = 512,
         except:
             error +=1
             error_lst.append(file)
-    num_data = len(res_lst)
-    lst = []
-    for res in res_lst:
-        lst += [*torch.tensor(res)]
-    res = pad_sequence(lst, batch_first=True).view(num_data,256,-1)
-    if not os.path.exists('./data'):
-        os.makedirs('./data')
-    torch.save(res, './data/dataset_audio.pt')
-    pd.DataFrame({'title':title_lst}).to_csv('./data/titles.csv', index=False)
+        if len(res_lst) == 5000:
+            num_data = len(res_lst)
+            lst = []
+            for res in res_lst:
+                lst += [*torch.tensor(res)]
+            res = pad_sequence(lst, batch_first=True).view(num_data,256,-1)
+            if not os.path.exists('./data'):
+                os.makedirs('./data')
+            torch.save(res, f'./data/dataset_audio{idx}.pt')
+            pd.DataFrame({'title':title_lst}).to_csv(f'./data/titles{idx}.csv', index=False)
+            res_lst = []
+            title_lst = []
+            lst = []
     print('Convert Complete!')
     print('Number of Error: ', error)
     print('Error List:')
@@ -45,4 +49,3 @@ def mp3_to_mel(n_fft = 2048, n_mels = 256, hop_length = 512,
 
 if __name__ == '__main__':
     mp3_to_mel()
-
