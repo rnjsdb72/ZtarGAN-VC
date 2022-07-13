@@ -34,22 +34,23 @@ def download_mp3(channel, start=0, end=-1):
 
 def convert():
     print('Start Converting')
-    files = glob('./download/*.mp4')
+    files = glob('*.mp4')
     for file in tqdm(files):
-        if not os.path.isdir(file):
-            filename = os.path.splitext(file)
-            try:
-                os.rename(file, filename[0]+'.mp3')
-            except:
-                pass
+        if file.split('/')[-1].startswith('[TJ노래방'):
+            if not os.path.isdir(file):
+                filename = os.path.splitext(file)
+                try:
+                    os.rename(file, filename[0]+'.mp3')
+                except:
+                    pass
     print('Convert Success!')
 
 def crawling_lyrics():
-    df = pd.read_csv('./download/df_music.csv')
+    df = pd.read_csv('./df_music.csv')
 
     print('\tPreprocessing...')
     
-    df = df.title.map(lambda x: x.startswith('[TJ노래방')).reset_index(drop=True)
+    df = df[df.title.map(lambda x: x.startswith('[TJ노래방'))].reset_index(drop=True)
     df['title2'] = df.title.map(lambda x: x.split(']')[1].split('/')[0].split('TJ')[0].strip())
 
     dir_driver = chromedriver_autoinstaller.install()
@@ -59,7 +60,7 @@ def crawling_lyrics():
     print('\tCrawling Lyrics...')
     lyrics = []
     error = 0
-    for keyword in tqdm(df.title):
+    for keyword in tqdm(df.title2):
         try:
             browser.get(f'https://www.melon.com/search/lyric/index.htm?q={keyword}')
             browser.find_element(By.CSS_SELECTOR, '.cntt_lyric a').click()
