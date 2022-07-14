@@ -81,7 +81,7 @@ def convert(files, start:int = 0, end:int = -1, batch_size:int = 64,
     
     for idx, data in enumerate(tqdm(dataloader)):
         mel_spec = converter.convert(data)
-        torch.save(mel_spec, f'./data/mel_spec_batch{start}_{end}_{idx}.pt')
+        torch.save(mel_spec, f'./data/mel_spec_batch{start}_{end-1}_{idx}.pt')
 
 if __name__ == '__main__':
     args = arg_parse()
