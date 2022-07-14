@@ -15,7 +15,7 @@ def arg_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--end', type=int, default=-1)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--sr', type=int, default=44100)
     parser.add_argument('--n_fft', type=int, default=2048)
     parser.add_argument('--n_mels', type=int, default=128)
@@ -69,7 +69,7 @@ class Sig_to_Mel(nn.Module):
         mels = self.to_mel(sig)
         return mels
 
-def convert(files, start:int = 0, end:int = -1, batch_size:int = 256,
+def convert(files, start:int = 0, end:int = -1, batch_size:int = 64,
             sr:int = 44100, n_fft:int = 2048, n_mels:int = 128,
             hop_length:int = 512, win_length:int = 2048):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
