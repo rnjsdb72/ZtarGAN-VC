@@ -48,7 +48,7 @@ class MP3_to_Dataset(torch.utils.data.Dataset):
         if sig.shape[1] < 15876000:
             sig = pad_sequence([*sig, torch.ones(15876000)], batch_first=True)[:2]
         else:
-            sig = sig[:,15876000]
+            sig = sig[:,:15876000]
         return sig
     
 class Sig_to_Mel(nn.Module):
