@@ -79,6 +79,9 @@ def convert(files, start:int = 0, end:int = -1, batch_size:int = 64,
     
     converter = Sig_to_Mel(sr, n_fft, n_mels, hop_length, win_length).to(device)
     
+    if not os.path.exists('./data'):
+        os.makedirs('./data')
+        
     for idx, data in enumerate(tqdm(dataloader)):
         mel_spec = converter.convert(data)
         torch.save(mel_spec, f'./data/mel_spec_batch{start}_{end-1}_{idx}.pt')

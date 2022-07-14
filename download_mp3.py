@@ -34,7 +34,7 @@ def download_mp3(channel, start=0, end=-1):
 
 def convert():
     print('Start Converting')
-    files = glob('*.mp4')
+    files = glob('./download/*.mp4')
     for file in tqdm(files):
         if file.split('/')[-1].startswith('[TJ노래방'):
             if not os.path.isdir(file):
@@ -44,6 +44,11 @@ def convert():
                 except:
                     pass
     print('Convert Success!')
+
+    mp4_lst = glob('./download/*.mp4')
+    for mp4 in mp4_lst:
+        os.remove(mp4)
+    print(f'Delete mp4 files (not converted to mp3): {len(mp4_lst)} files')
 
 def crawling_lyrics():
     df = pd.read_csv('./df_music.csv')
