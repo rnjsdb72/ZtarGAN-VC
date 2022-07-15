@@ -1,0 +1,43 @@
+{
+    "seed": 0,
+    "run_name": "try1",
+    "saved_dir": "./results",
+    "train_dataset": {"name": "Mel_Dataset",
+                      "args": {
+                        "files": "./data/*.pt",
+                        "file_batch_size": 64
+                      }},
+    "val_dataset": {"name": "Mel_Dataset",
+                      "args": {
+                        "files": "./data/*.pt",
+                        "file_batch_size": 64
+                      }},
+    "train_dataloader": {"args": {
+                            "batch_size":16,
+                            "shuffle": true,
+                            "drop_last": true
+                        }},
+    "val_dataloader": {"args": {
+                            "batch_size":16,
+                            "shuffle": false,
+                            "drop_last": true
+                        }},
+    "num_epochs": 100,
+    "model": {"name": "MelNet",
+              "args":{}},
+    "resume_from": false,
+    "resume_mode": "all",
+    "checkpoint_path": "",
+    "criterion": {"name": "Loss",
+                  "args":{}},
+    "optimizer": {"name": "Adam",
+                  "args": {"lr": 0.01}},
+    "scheduler": {"name": "ReduceLROnPlateau",
+                  "args": {"mode": "max",
+                           "factor": 0.9,
+                           "patience": 3}},
+    "val_every": 1,
+    "save_mode": "",
+    "num_to_remain": 3,
+    "fp16": false
+}
