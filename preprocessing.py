@@ -97,7 +97,7 @@ if __name__ == '__main__':
     hop_length = args.hop_length
     win_length = args.win_length
     
-    files = glob('./download/*.mp3')
+    files = sorted(glob('./download/*.mp3'))
     if end == -1:
         end = len(files)
     else:
