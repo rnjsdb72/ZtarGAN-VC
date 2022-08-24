@@ -1,43 +1,96 @@
 {
-    "seed": 0,
-    "run_name": "try1",
-    "saved_dir": "./results",
-    "train_dataset": {"name": "Mel_Dataset",
-                      "args": {
-                        "files": "./data/*.pt",
-                        "file_batch_size": 64
-                      }},
-    "val_dataset": {"name": "Mel_Dataset",
-                      "args": {
-                        "files": "./data/*.pt",
-                        "file_batch_size": 64
-                      }},
-    "train_dataloader": {"args": {
-                            "batch_size":16,
-                            "shuffle": true,
-                            "drop_last": true
-                        }},
-    "val_dataloader": {"args": {
-                            "batch_size":16,
-                            "shuffle": false,
-                            "drop_last": true
-                        }},
-    "num_epochs": 100,
-    "model": {"name": "MelNet",
-              "args":{}},
-    "resume_from": false,
-    "resume_mode": "all",
-    "checkpoint_path": "",
-    "criterion": {"name": "Loss",
-                  "args":{}},
-    "optimizer": {"name": "Adam",
-                  "args": {"lr": 0.01}},
-    "scheduler": {"name": "ReduceLROnPlateau",
-                  "args": {"mode": "max",
-                           "factor": 0.9,
-                           "patience": 3}},
-    "val_every": 1,
-    "save_mode": "",
-    "num_to_remain": 3,
-    "fp16": false
+    "restore_step":null,
+    "preprocess":{
+        "dataset":"Conference",
+        "path":{
+            "corpus_path":"/home/ming/Data/LJSpeech-1.1",
+            "lexicon_path":"lexicon/librispeech-lexicon.txt",
+            "raw_path":"./raw_data/Conference",
+            "preprocessed_path":"./preprocessed_data/Conference"
+        },
+        "preprocessing":{
+            "val_size":512,
+            "text":{
+                "text_cleaners":["english_cleaners"],
+                "language":"en"
+            },
+            "audio":{
+                "sampling_rate":22050,
+                "max_wav_value":32768.0
+            },
+            "stft":{
+                "filter_length":1024,
+                "hop_length":256,
+                "win_length":1024
+            },
+            "mel":{
+                "n_mel_channels":80,
+                "mel_fmin":0,
+                "mel_fmax":8000
+            },
+            "pitch":{
+                "feature":"frame_level",
+                "normalization":false
+            },
+            "energy":{
+                "feature":"frame_level",
+                "normalization":false
+            }
+        }
+    },
+    "model":{
+        "transformer":{
+            "encoder_layer":4,
+            "encoder_head":256,
+            "encoder_hidden":256,
+            "decoder_layer":4,
+            "decoder_head":2,
+            "decoder_hidden":256,
+            "conv_filter_size":1024,
+            "conv_kernel_size":[9,1],
+            "encoder_dropout":0.2,
+            "decoder_dropout":0.2
+        },
+        "variance_predictor":{
+            "filter_size":256,
+            "kernel_size":3,
+            "dropout":0.5
+        },
+        "variance_embedding":{
+            "pitch_quantization":"log",
+            "energy_quantization":"linear",
+            "n_bins":256
+        },
+        "multi_speaker":false,
+        "max_seq_len":1000,
+        "vocoder":{
+            "model":"HiFi-GAN",
+            "speaker":"universal"
+        }
+    },
+    "train":{
+        "path":{
+            "ckpt_path":"./output/ckpt/Conference",
+            "log_path":"./output/log/Conference",
+            "result_path":"./output/result/Conference"
+        },
+        "optimizer":{
+            "batch_size":48,
+            "betas":[0.9, 0.98],
+            "eps":0.000000001,
+            "weight_decay":0.0,
+            "grad_clip_thresh":1.0,
+            "grad_acc_step":1,
+            "warm_up_step":4000,
+            "anneal_steps":[],
+            "anneal_rate":1.0
+        },
+        "step":{
+            "total_step":160000,
+            "log_step":100,
+            "synth_step":1000,
+            "val_step":1000,
+            "save_step":10000
+        }
+    }
 }
