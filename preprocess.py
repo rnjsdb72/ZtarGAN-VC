@@ -1,14 +1,24 @@
 import json
 from collections import namedtuple
+import argparse
 
-from utils.tools import arg_parse
 from preprocessor.preprocessor import Preprocessor
+from preprocessor.generate_lab import generate_lab
 
 
 if __name__ == "__main__":
-    args = arg_parse()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cfg', type=str, default='train_config.json')
+    parser.add_argument('--generate_lab', type=str, default='false')
+    args = parser.parse_args()
+    
     with open(args.cfg, 'r') as f:
         cfgs = json.load(f)
+
     config = cfgs['preprocess']
+
+    if args.generate_lab == 'true':
+        generate_lab(config)
+
     preprocessor = Preprocessor(config)
     preprocessor.build_from_path()
