@@ -10,12 +10,19 @@ import jamotools
 
 from utils.tools import arg_parse
 
+def jamo_split(content):
+    g2p=G2p()
+    content=g2p(content)
+    jamo=h2j(content).split(" ")
+
+    return jamo
+
 def generate_lab(cfg):
     # json 파일 수집
     print('Collect json files,,,')
     files = []
-    for i, speaker in enumerate(tqdm(os.listdir(cfg['raw_path']))):
-        files = files + glob(os.join(cfg['raw_path']+'/'+speaker+'/*.json'))
+    for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
+        files = files + glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.json'))
     
     # 음소 분리
     print('Split word to phoneme & Generate Meta Data,,,')
@@ -48,7 +55,7 @@ def generate_lab(cfg):
         text_path = wav_path.replace('wav', 'lab')
         file_path = data['파일정보']['DirectoryPath']
 
-        with open(cfg['raw_data'] + file_path + text_path, 'w') as t:
+        with open(cfg['path']['raw_path'] + file_path + text_path, 'w') as t:
             t.write(content)
 
 
