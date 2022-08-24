@@ -25,7 +25,7 @@ def generate_lab(cfg):
         files = files + glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.json'))
     
     # 음소 분리
-    print('Split word to phoneme & Generate Meta Data,,,')
+    print('Split word to phoneme,,,')
     p_dct = {}
     for file in tqdm(files):
         with open(file, 'r') as f:
