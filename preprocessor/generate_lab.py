@@ -55,7 +55,7 @@ def generate_lab(cfg):
         text_path = wav_path.replace('wav', 'lab')
         file_path = data['파일정보']['DirectoryPath']
 
-        with open(cfg['path']['raw_path'] + file_path + text_path, 'w') as t:
+        with open(cfg['path']['raw_path'] + file_path + '/' + text_path, 'w') as t:
             t.write(content)
 
 
