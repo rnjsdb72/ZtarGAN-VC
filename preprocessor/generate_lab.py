@@ -39,7 +39,7 @@ def generate_lab(cfg):
     # Lexicon 제작
     os.makedirs('./lexicon', exist_ok=True)
     with open("./p_lexicon.txt", "w") as f:
-        for k, v in p_dict.items():
+        for k, v in p_dct.items():
             f.write(f"{k}\t{v}\n")
     print("Complete to make lexicon!")
 
