@@ -12,19 +12,19 @@ def get_model(args, configs, device, train=False):
     (preprocess_config, model_config, train_config) = configs
 
     model = FastSpeech2(preprocess_config, model_config).to(device)
-    if args.restore_step:
+    if args['restore_step']:
         ckpt_path = os.path.join(
             train_config["path"]["ckpt_path"],
-            "{}.pth.tar".format(args.restore_step),
+            "{}.pth.tar".format(args['restore_step']),
         )
         ckpt = torch.load(ckpt_path)
         model.load_state_dict(ckpt["model"])
 
     if train:
         scheduled_optim = ScheduledOptim(
-            model, train_config, model_config, args.restore_step
+            model, train_config, model_config, args['restore_step']
         )
-        if args.restore_step:
+        if args['restore_step']:
             scheduled_optim.load_state_dict(ckpt["optimizer"])
         model.train()
         return model, scheduled_optim

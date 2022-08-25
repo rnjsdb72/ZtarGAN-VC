@@ -1,4 +1,5 @@
 import os
+import json
 
 import torch
 import torch.nn as nn
@@ -7,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from utils.model import get_model, get_vocoder, get_param_num
-from utils.tools import to_device, log, synth_one_sample
+from utils.tools import to_device, log, synth_one_sample, arg_parse
 from model import FastSpeech2Loss
 from dataset import Dataset
 
@@ -56,7 +57,7 @@ def main(args, configs):
     val_logger = SummaryWriter(val_log_path)
 
     # Training
-    step = args.restore_step + 1
+    step = args['restore_step'] + 1
     epoch = 1
     grad_acc_step = train_config["optimizer"]["grad_acc_step"]
     grad_clip_thresh = train_config["optimizer"]["grad_clip_thresh"]
@@ -67,7 +68,7 @@ def main(args, configs):
     val_step = train_config["step"]["val_step"]
 
     outer_bar = tqdm(total=total_step, desc="Training", position=0)
-    outer_bar.n = args.restore_step
+    outer_bar.n = args['restore_step']
     outer_bar.update()
 
     while True:
