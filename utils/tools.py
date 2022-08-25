@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-ef arg_parse():
+def arg_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('cfg', type=str)
     args = parser.parse_args()
