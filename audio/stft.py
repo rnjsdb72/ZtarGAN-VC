@@ -17,6 +17,7 @@ class STFT(torch.nn.Module):
 
     def __init__(self, filter_length, hop_length, win_length, window="hann"):
         super(STFT, self).__init__()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.filter_length = filter_length
         self.hop_length = hop_length
         self.win_length = win_length
@@ -65,8 +66,8 @@ class STFT(torch.nn.Module):
         input_data = input_data.squeeze(1)
 
         forward_transform = F.conv1d(
-            input_data.cuda(),
-            torch.autograd.Variable(self.forward_basis, requires_grad=False).cuda(),
+            input_data.to(self.device),
+            torch.autograd.Variable(self.forward_basis, requires_grad=False).to(self.device),
             stride=self.hop_length,
             padding=0,
         ).cpu()
