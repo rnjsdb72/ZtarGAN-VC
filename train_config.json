@@ -1,5 +1,5 @@
 {
-    "restore_step":null,
+    "restore_step":0,
     "preprocess":{
         "dataset":"Conference",
         "path":{
@@ -65,7 +65,7 @@
         "max_seq_len":1000,
         "vocoder":{
             "model":"HiFi-GAN",
-            "speaker":"Conference"
+            "speaker":"universal"
         }
     },
     "train":{

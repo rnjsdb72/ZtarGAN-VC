@@ -59,7 +59,7 @@ def get_vocoder(config, device):
             config = json.load(f)
         config = hifigan.AttrDict(config)
         vocoder = hifigan.Generator(config)
-        ckpt = torch.load(f"hifigan/generator_{speaker}.pth.tar")
+        ckpt = torch.load(f"hifigan/generator_{speaker}.pth.tar", map_location=torch.device(device))
         vocoder.load_state_dict(ckpt["generator"])
         vocoder.eval()
         vocoder.remove_weight_norm()
