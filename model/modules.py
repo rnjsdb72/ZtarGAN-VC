@@ -181,7 +181,6 @@ class LengthRegulator(nn.Module):
 
     def expand(self, batch, predicted):
         out = list()
-
         for i, vec in enumerate(batch):
             expand_size = predicted[i].item()
             out.append(vec.expand(max(int(expand_size), 0), -1))
