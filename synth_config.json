@@ -2,7 +2,7 @@
     "restore_step": 0,
     "mode": "single",
     "source": null,
-    "text": null,
+    "text": "안녕하세요. 저는 권유진입니다.",
     "speaker_id": 0,
     "preprocess": {
         "dataset": "Conference",
@@ -50,6 +50,7 @@
             "decoder_layer": 6,
             "decoder_head": 2,
             "decoder_hidden": 256,
+            "conv_filter_size": 1024,
             "conv_kernel_size": [9,1],
             "encoder_dropout": 0.2,
             "decoder_dropout": 0.2
