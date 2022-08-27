@@ -3,8 +3,8 @@
     "preprocess":{
         "dataset":"Conference",
         "path":{
-            "corpus_path":"/home/ming/Data/LJSpeech-1.1",
-            "lexicon_path":"lexicon/librispeech-lexicon.txt",
+            "corpus_path":"",
+            "lexicon_path":"lexicon/p_lexicon.txt",
             "raw_path":"./raw_data/Conference",
             "preprocessed_path":"./preprocessed_data/Conference"
         },
