@@ -22,5 +22,6 @@ sh install_mfa.sh
 - mfa 모델 학습 및 TextGrid 생성
 ```
 cd mfa
-sh run_mfa.sh
+sh run_mfa.sh <dir>
 ```
+- `dir`: raw dataset 폴더 이름
