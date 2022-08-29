@@ -21,42 +21,75 @@ def generate_lab(cfg):
     # json 파일 수집
     print('Collect json files,,,')
     files = []
-    for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
-        files = files + glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.json'))
+    if cfg['dataset'] == 'kss':
+        for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
+            files = glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.txt'))
+    else:
+        for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
+            files = files + glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.json'))
     
     # 음소 분리
-    print('Split word to phoneme,,,')
-    p_dct = {}
-    for file in tqdm(files):
-        with open(file, 'r') as f:
-            data = json.load(f)
-        text = data['전사정보']['TransLabelText']
-        words = text.split(" ")
-        for word in words:
-            if not word in p_dct.keys():
-                p_dct[word] = " ".join(jamo_split(word)[0])
+    #print('Split word to phoneme,,,')
+    #p_dct = {}
+    #if cfg['dataset'] == 'kss':
+    #    with open(files[0], 'r') as f:
+    #        data = f
+    #        while True:
+    #            line = data.readline()
+    #            if not line:
+    #                break
+    #            text = line.split('|')[1]
+    #            words = text.split(" ")
+    #            for word in words:
+    #                if not word in p_dct.keys():
+    #                    p_dct[word] = " ".join(jamo_split(word)[0])
+    #else:
+    #    for file in tqdm(files):
+    #        with open(file, 'r') as f:
+    #            data = json.load(f)
+    #        text = data['전사정보']['TransLabelText']
+    #        words = text.split(" ")
+    #        for word in words:
+    #            if not word in p_dct.keys():
+    #                p_dct[word] = " ".join(jamo_split(word)[0])
     
     # Lexicon 제작
-    os.makedirs('./lexicon', exist_ok=True)
-    with open("./lexicon/p_lexicon.txt", "w") as f:
-        for k, v in p_dct.items():
-            f.write(f"{k}\t{v}\n")
-    print("Complete to make lexicon!")
+    #os.makedirs('./lexicon', exist_ok=True)
+    #with open("./lexicon/p_lexicon.txt", "w") as f:
+    #    for k, v in p_dct.items():
+    #        f.write(f"{k}\t{v}\n")
+    #print("Complete to make lexicon!")
 
     # lab file 제작
     print("Generate LAB file,,,")
     meta_lst = []
-    for file in tqdm(files):
-        with open(file, 'r') as f:
-            data = json.load(f)
+    if cfg['dataset'] == 'kss':
+        with open(files[0], 'r') as f:
+            data = f
+            while True:
+                line = data.readline()
+                if not line:
+                    break
 
-        wav_path = data['파일정보']['FileName']
-        content = data['전사정보']['TransLabelText']
-        text_path = wav_path.replace('wav', 'lab')
-        file_path = data['파일정보']['DirectoryPath']
+                wav_path = line.split('|')[0].split('/')[-1]
+                content = line.split('|')[1]
+                text_path = wav_path.replace('wav', 'lab')
+                file_path = os.listdir(cfg['path']['raw_path'])[0]
+            
+                with open(cfg['path']['raw_path'] + '/' + file_path + '/' + text_path, 'w') as t:
+                        t.write(content)
+    else:
+        for file in tqdm(files):
+            with open(file, 'r') as f:
+                data = json.load(f)
 
-        with open(cfg['path']['raw_path'] + file_path + '/' + text_path, 'w') as t:
-            t.write(content)
+            wav_path = data['파일정보']['FileName']
+            content = data['전사정보']['TransLabelText']
+            text_path = wav_path.replace('wav', 'lab')
+            file_path = data['파일정보']['DirectoryPath']
+
+            with open(cfg['path']['raw_path'] + file_path + '/' + text_path, 'w') as t:
+                t.write(content)
 
 
 if __name__ == "__main__":

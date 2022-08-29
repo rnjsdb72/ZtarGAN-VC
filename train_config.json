@@ -1,12 +1,12 @@
 {
     "restore_step":0,
     "preprocess":{
-        "dataset":"Conference",
+        "dataset":"kss",
         "path":{
             "corpus_path":"",
             "lexicon_path":"lexicon/p_lexicon.txt",
-            "raw_path":"./raw_data/Conference",
-            "preprocessed_path":"./preprocessed_data/Conference"
+            "raw_path":"./raw_data/kss",
+            "preprocessed_path":"./preprocessed_data/kss"
         },
         "preprocessing":{
             "val_size":512,
@@ -15,7 +15,7 @@
                 "language":"kr"
             },
             "audio":{
-                "sampling_rate":22050,
+                "sampling_rate":44100,
                 "max_wav_value":32768.0
             },
             "stft":{
@@ -70,9 +70,9 @@
     },
     "train":{
         "path":{
-            "ckpt_path":"./output/ckpt/Conference",
-            "log_path":"./output/log/Conference",
-            "result_path":"./output/result/Conference"
+            "ckpt_path":"./output/ckpt/kss",
+            "log_path":"./output/log/kss",
+            "result_path":"./output/result/kss"
         },
         "optimizer":{
             "batch_size":16,
