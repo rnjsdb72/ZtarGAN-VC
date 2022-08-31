@@ -38,13 +38,11 @@ def main(args, configs):
 
     # Prepare model
     model, optimizer = get_model(args, configs, device, train=True)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.9, patience = 3)
     ckpt_path = os.path.join(
             cfgs['train']["path"]["ckpt_path"],
             "{}.pth.tar".format(args['restore_step']),
         )
     ckpt = torch.load(ckpt_path)
-    scheduler.load_state_dict(ckpt["scheduler"])
     model = nn.DataParallel(model)
     num_param = get_param_num(model)
     Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
@@ -152,20 +150,13 @@ def main(args, configs):
                         f.write(message + "\n")
                     outer_bar.write(message)
 
-                    if scheduler:
-                        if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                            scheduler.step(float(message.split('Total Loss: ')[1].split(',')[0]))
-                        else:
-                            scheduler.step()
-
                     model.train()
 
                 if step % save_step == 0:
                     torch.save(
                         {
                             "model": model.module.state_dict(),
-                            "optimizer": optimizer._optimizer.state_dict(),
-                            "scheduler": scheduler.state_dict()
+                            "optimizer": optimizer._optimizer.state_dict()
                         },
                         os.path.join(
                             train_config["path"]["ckpt_path"],
