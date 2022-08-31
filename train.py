@@ -38,11 +38,12 @@ def main(args, configs):
 
     # Prepare model
     model, optimizer = get_model(args, configs, device, train=True)
-    ckpt_path = os.path.join(
-            cfgs['train']["path"]["ckpt_path"],
-            "{}.pth.tar".format(args['restore_step']),
-        )
-    ckpt = torch.load(ckpt_path)
+    if args['restore_step'] != 0:
+        ckpt_path = os.path.join(
+                cfgs['train']["path"]["ckpt_path"],
+                "{}.pth.tar".format(args['restore_step']),
+            )
+        ckpt = torch.load(ckpt_path)
     model = nn.DataParallel(model)
     num_param = get_param_num(model)
     Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
