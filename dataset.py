@@ -99,7 +99,7 @@ class Dataset(Dataset):
         energies = [data[idx]["energy"] for idx in idxs]
         durations = [data[idx]["duration"] for idx in idxs]
 
-        text_lens = np.array([text.shape[0] for text in texts])
+        text_lens = np.array([len(pitch) for pitch in pitches])
         mel_lens = np.array([mel.shape[0] for mel in mels])
 
         n = max((len(x) for x in pitches))
