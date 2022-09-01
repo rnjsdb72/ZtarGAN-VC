@@ -268,7 +268,7 @@ def plot_mel(data, stats, titles):
     return fig
 
 
-def pad_1D(inputs, PAD=0):
+def pad_1D(inputs, PAD=0, n=None):
     def pad_data(x, length, PAD):
         x_padded = np.pad(
             x, (0, length - x.shape[0]), mode="constant", constant_values=PAD
@@ -276,6 +276,8 @@ def pad_1D(inputs, PAD=0):
         return x_padded
 
     max_len = max((len(x) for x in inputs))
+    if n:
+        max_len = n
     padded = np.stack([pad_data(x, max_len, PAD) for x in inputs])
 
     return padded

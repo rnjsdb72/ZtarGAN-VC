@@ -102,8 +102,9 @@ class Dataset(Dataset):
         text_lens = np.array([text.shape[0] for text in texts])
         mel_lens = np.array([mel.shape[0] for mel in mels])
 
+        n = max((len(x) for x in pitches))
         speakers = np.array(speakers)
-        texts = pad_1D(texts)
+        texts = pad_1D(texts, n=n)
         mels = pad_2D(mels)
         pitches = pad_1D(pitches)
         energies = pad_1D(energies)
