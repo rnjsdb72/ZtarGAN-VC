@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import os
+import re
 from glob import glob
 from tqdm import tqdm
 
@@ -24,41 +25,43 @@ def generate_lab(cfg):
     if cfg['dataset'] == 'kss':
         for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
             files = glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.txt'))
-    else:
+    else: 
         for i, speaker in enumerate(tqdm(os.listdir(cfg['path']['raw_path']))):
             files = files + glob(os.path.join(cfg['path']['raw_path']+'/'+speaker+'/*.json'))
     
     # 음소 분리
-    #print('Split word to phoneme,,,')
-    #p_dct = {}
-    #if cfg['dataset'] == 'kss':
-    #    with open(files[0], 'r') as f:
-    #        data = f
-    #        while True:
-    #            line = data.readline()
-    #            if not line:
-    #                break
-    #            text = line.split('|')[1]
-    #            words = text.split(" ")
-    #            for word in words:
-    #                if not word in p_dct.keys():
-    #                    p_dct[word] = " ".join(jamo_split(word)[0])
-    #else:
-    #    for file in tqdm(files):
-    #        with open(file, 'r') as f:
-    #            data = json.load(f)
-    #        text = data['전사정보']['TransLabelText']
-    #        words = text.split(" ")
-    #        for word in words:
-    #            if not word in p_dct.keys():
-    #                p_dct[word] = " ".join(jamo_split(word)[0])
+    print('Split word to phoneme,,,')
+    p_dct = {}
+    if cfg['dataset'] == 'kss':
+        filters = '([.,!?])'
+        with open(files[0], 'r') as f:
+            data = f
+            while True:
+                line = data.readline()
+                if not line:
+                    break
+                text = line.split('|')[1]
+                text = re.sub(re.compile(filters), '', text)
+                words = text.split(" ")
+                for word in words:
+                    if not word in p_dct.keys():
+                        p_dct[word] = " ".join(jamo_split(word)[0])
+    else:
+        for file in tqdm(files):
+            with open(file, 'r') as f:
+                data = json.load(f)
+            text = data['전사정보']['TransLabelText']
+            words = text.split(" ")
+            for word in words:
+                if not word in p_dct.keys():
+                    p_dct[word] = " ".join(jamo_split(word)[0])
     
     # Lexicon 제작
-    #os.makedirs('./lexicon', exist_ok=True)
-    #with open("./lexicon/p_lexicon.txt", "w") as f:
-    #    for k, v in p_dct.items():
-    #        f.write(f"{k}\t{v}\n")
-    #print("Complete to make lexicon!")
+    os.makedirs('./lexicon', exist_ok=True)
+    with open("./lexicon/p_lexicon.txt", "w") as f:
+        for k, v in p_dct.items():
+            f.write(f"{k}\t{v}\n")
+    print("Complete to make lexicon!")
 
     # lab file 제작
     print("Generate LAB file,,,")
