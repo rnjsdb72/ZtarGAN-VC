@@ -2,6 +2,7 @@ import os
 import torch
 import pickle  
 import numpy as np
+from functools import partial
 
 from torch.utils import data
 from torch.utils.data.sampler import Sampler
@@ -138,7 +139,7 @@ def get_loader(config):
     dataset = Utterances(config)
     collator = Collator(config)
     sampler = MultiSampler(len(dataset), config.data_loader.samplier, shuffle=config.data_loader.shuffle)
-    worker_init_fn = lambda x: np.random.seed((torch.initial_seed()) % (2**32))
+    init_fn = partial(worker_init_fn, num_workers=config.data_loader.num_workers)
     
     data_loader = data.DataLoader(dataset=dataset,
                                  batch_size=config.data_loader.batch_size,
@@ -146,7 +147,12 @@ def get_loader(config):
                                  num_workers=config.data_loader.num_workers,
                                  drop_last=False,
                                  pin_memory=True,
-                                 worker_init_fn=worker_init_fn,
+                                 worker_init_fn=init_fn,
                                  collate_fn=collator)
-
+    
     return data_loader
+
+def worker_init_fn(worker_id, num_workers):
+    # The seed of each worker equals to
+    # num_worker * rank + worker_id + user_seed
+    np.random.seed((torch.initial_seed()) % (2**32))

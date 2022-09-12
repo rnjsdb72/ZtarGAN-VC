@@ -4,29 +4,32 @@ from model import InterpLnr
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import os
 import time
 import datetime
 from collections import OrderedDict
-from utils import quantize_f0_torch
+from tqdm import tqdm
+from utils import quantize_f0_torch, log, synth_one_sample, get_vocoder
 
 
 class Solver(object):
     """Solver for training"""
 
 
-    def __init__(self, data_loader, args, config):
-
-        # Step configuration
-        self.args = args
-        self.num_iters = self.args.num_iters
-        self.resume_iters = self.args.resume_iters
-        self.log_step = self.args.log_step
-        self.ckpt_save_step = self.args.ckpt_save_step
-
+    def __init__(self, data_loader, config):
+        
         # Hyperparameters
         self.config = config
+
+        # Step configuration
+        self.num_iters = self.config.train.num_iters
+        self.resume_iters = self.config.train.resume_iters
+        self.log_step = self.config.train.log_step
+        self.synth_step = self.config.train.synth_step
+        self.val_step = self.config.train.val_step
+        self.ckpt_save_step = self.config.train.ckpt_save_step
 
         # Data loader.
         self.data_loader = data_loader
@@ -53,6 +56,8 @@ class Solver(object):
         # Logging
         self.min_loss_step = 0
         self.min_loss = float('inf')
+
+        self.vocoder = get_vocoder(self.config, self.device)
 
     def build_model(self):        
         self.model = Generator(self.config) if self.model_type == 'G' else F_Converter(self.config)
@@ -93,6 +98,13 @@ class Solver(object):
         self.lr = self.optimizer.param_groups[0]['lr']
 
     def train(self):
+        train_log_path = os.path.join(self.config.directories.log_path, "train")
+        val_log_path = os.path.join(self.config.directories.log_path, "val")
+        os.makedirs(train_log_path, exist_ok=True)
+        os.makedirs(val_log_path, exist_ok=True)
+        train_logger = SummaryWriter(train_log_path)
+        val_logger = SummaryWriter(val_log_path)
+
         # Start training from scratch or resume training.
         start_iters = 0
         if self.resume_iters:
@@ -110,7 +122,8 @@ class Solver(object):
         print('Start training...')
         start_time = time.time()
         self.model = self.model.train()
-        for i in range(start_iters, self.num_iters):
+        bar = tqdm(range(start_iters, self.num_iters))
+        for i in bar:
 
             # =================================================================================== #
             #                             1. Load input data                                      #
@@ -179,6 +192,10 @@ class Solver(object):
 
             # Logging.
             train_loss_id = loss_id.item()
+            
+            description =  f'Iteration [{i+1}/{self.num_iters}]: ' 
+            description += f'running Loss: {round(train_loss_id,4)}'
+            bar.set_description(description)
 
             # =================================================================================== #
             #                           3. Logging and saving checkpoints                         #
@@ -188,9 +205,33 @@ class Solver(object):
             if (i+1) % self.log_step == 0:
                 et = time.time() - start_time
                 et = str(datetime.timedelta(seconds=et))[:-7]
-                log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
-                log += ", {}/train_loss_id: {:.8f}".format(self.model_type, train_loss_id)
-                print(log)
+                log_ = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
+                log_ += ", {}/train_loss_id: {:.8f}".format(self.model_type, train_loss_id)
+                print(log_)
+
+                log(train_logger, i+1, loss=train_loss_id)
+
+            if (i+1) % self.synth_step == 0:
+                fig, wav_reconstruction, wav_prediction = synth_one_sample(
+                    spmel_gt,
+                    spmel_output,
+                    self.vocoder
+                )
+                log(
+                    train_logger,
+                    fig=fig,
+                    tag="Training/step_{}".format(i+1),
+                )
+                log(
+                    train_logger,
+                    audio=wav_reconstruction,
+                    tag="Training/step_{}_reconstructed".format(i+1),
+                )
+                log(
+                    train_logger,
+                    audio=wav_prediction,
+                    tag="Training/step_{}_synthesized".format(i+1),
+                )
     
             # Save model checkpoints
             if (i+1) % self.ckpt_save_step == 0:

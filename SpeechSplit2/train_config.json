@@ -1,16 +1,17 @@
 {
     "directories":{
-        "data_dir": "data/train/",
-        "feat_dir": "feat",
+        "data_dir": "raw_data/wav",
+        "feat_dir": "preprocessed_data",
         "wav_dir": "wav_mono",
         "spmel_dir": "spmel",
         "f0_dir": "f0",
-        "model_save_dir": "models"
+        "model_save_dir": "./output/ckpt",
+        "log_path": "./output/log"
     },
     "data_loader":{
         "batch_size": 16,
         "shuffle": true,
-        "num_workers": -1,
+        "num_workers": 3,
         "samplier": 8
     },
     "model":{
@@ -27,7 +28,7 @@
         "dim_con": 80,
         "dim_pit": 257,
         "dim_freq": 80,
-        "dim_spk_emb": 82,
+        "dim_spk_emb": 146,
         "dim_f0": 257,
         "dim_dec": 512,
         "len_raw": 128,
@@ -40,14 +41,20 @@
         "dropout": 0.2,
         "train": true
     },
+    "vocoder":{
+        "model":"HiFi-GAN",
+        "speaker":"universal"
+    },
     "train": {
         "num_iters": 800000,
         "resume_iters": 0,
         "log_step": 100,
+        "synth_step": 100,
+        "val_step": 1000,
         "ckpt_save_step": 20000,
         "config_name": "spsp2-large",
 
-        "lr": 0.001,
+        "lr": 0.00001,
         "beta1": 0.9,
         "beta2": 0.999,
         "experiment": "spsp2",

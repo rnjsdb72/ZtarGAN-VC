@@ -4,11 +4,13 @@ import numpy as np
 import os
 import json
 import argparse
+import matplotlib.pyplot as plt
 
 from collections import OrderedDict
 from random import choice
 from pysptk import sptk
 from scipy import signal
+from scipy.io import wavfile
 from librosa.filters import mel
 from librosa.core import resample, stft, istft
 from librosa.util import fix_length
@@ -17,8 +19,10 @@ from scipy.signal import get_window
 from math import pi, sqrt, exp
 import pyworld as pw
 
+import hifigan
 
-mel_basis = mel(16000, 1024, fmin=90, fmax=7600, n_mels=80).T
+
+mel_basis = mel(sr=16000, n_fft=1024, fmin=90, fmax=7600, n_mels=80).T
 min_level = np.exp(-100 / 20 * np.log(10))
 
 def arg_parse():
@@ -27,6 +31,114 @@ def arg_parse():
     args = parser.parse_args()
     return args
 
+def get_vocoder(config, device):
+    speaker = config.vocoder.speaker
+
+    with open("hifigan/config.json", "r") as f:
+        config = json.load(f)
+    config = hifigan.AttrDict(config)
+    vocoder = hifigan.Generator(config)
+    ckpt = torch.load(f"hifigan/generator_{speaker}.pth.tar", map_location=torch.device(device))
+    vocoder.load_state_dict(ckpt["generator"])
+    vocoder.eval()
+    vocoder.remove_weight_norm()
+    vocoder.to(device)
+
+    return vocoder
+
+def log(
+    logger, step=None, loss=None, fig=None, audio=None, sampling_rate=22050, tag=""
+):
+    if loss is not None:
+        logger.add_scalar("Loss", loss, step)
+
+    if fig is not None:
+        logger.add_figure(tag, fig)
+
+    if audio is not None:
+        logger.add_audio(
+            tag,
+            audio / max(abs(audio)),
+            sample_rate=sampling_rate,
+        )
+
+def synth_one_sample(targets, predictions, vocoder):
+
+    mel_len = max(np.array([mel.shape[0] for mel in targets]))
+    mel_target = targets[0, :mel_len].detach().transpose(0, 1)
+    mel_prediction = predictions[0, :mel_len].detach().transpose(0, 1)
+
+    fig = plot_mel(
+        [
+            mel_prediction.cpu().numpy(),
+            mel_target.cpu().numpy()
+        ],
+        ["Synthetized Spectrogram", "Ground-Truth Spectrogram"],
+    )
+    
+    wav_reconstruction = vocoder_infer(
+        mel_target.unsqueeze(0),
+        vocoder
+    )[0]
+    wav_prediction = vocoder_infer(
+        mel_prediction.unsqueeze(0),
+        vocoder
+    )[0]
+
+    return fig, wav_reconstruction, wav_prediction
+
+def synth_samples(targets, predictions, vocoder, path):
+
+    basenames = targets[0]
+    for i in range(len(predictions[0])):
+        mel_len = max(np.array([mel.shape[0] for mel in mel_target]))
+        mel_target = targets[0, :mel_len].detach().transpose(0, 1)
+        mel_prediction = predictions[1][0, :mel_len].detach().transpose(0, 1)
+
+        fig = plot_mel(
+            [
+                mel_prediction.cpu().numpy(),
+            ],
+            ["Synthetized Spectrogram"],
+        )
+        plt.savefig(os.path.join(path, "{}.png".format(basename)))
+        plt.close()
+
+    mel_predictions = predictions[1].transpose(1, 2)
+    wav_predictions = vocoder_infer(mel_predictions, vocoder)
+
+    sampling_rate = 22050
+    for wav, basename in zip(wav_predictions, basenames):
+        wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
+
+def plot_mel(data, titles):
+    fig, axes = plt.subplots(len(data), 1, squeeze=False)
+    if titles is None:
+        titles = [None for i in range(len(data))]
+
+    for i in range(len(data)):
+        mel = data[i]
+        axes[i][0].imshow(mel, origin="lower")
+        axes[i][0].set_aspect(2.5, adjustable="box")
+        axes[i][0].set_ylim(0, mel.shape[0])
+        axes[i][0].set_title(titles[i], fontsize="medium")
+        axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
+        axes[i][0].set_anchor("W")
+
+    return fig
+
+def vocoder_infer(mels, vocoder, lengths=None):
+    with torch.no_grad():
+        wavs = vocoder(mels).squeeze(1)
+
+    wavs = (wavs.cpu().numpy()).astype("int16")
+    wavs = [wav for wav in wavs]
+
+    for i in range(len(mels)):
+        if lengths is not None:
+            wavs[i] = wavs[i][: lengths[i]]
+
+    return wavs
 
 class Dict2Class(object):
       
@@ -279,6 +391,6 @@ def vtlp(x, fs, alpha):
             new_S[:, pos+1] += warp_up * S[:, k]
 
     y = istft(new_S.T)
-    y = fix_length(y, len(x))
+    y = fix_length(y, size=len(x))
 
     return y
