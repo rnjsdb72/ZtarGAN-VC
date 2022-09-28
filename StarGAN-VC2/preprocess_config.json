@@ -2,8 +2,8 @@
     "resample_rate":0,
     "data_split":{
         "perform_data_split":"y",
-        "origin_wavpath":"./raw_data",
-        "target_wavpath":"./raw_data",
+        "origin_wavpath":"./raw_data/wav",
+        "target_wavpath":"./raw_data/wav",
         "origin_wavpath_train":"if perform_data_split is 'n' fill it",
         "origin_wavpath_eval":"if perform_data_split is 'n' fill it",
         "target_wavpath_train":"if perform_data_split is 'n' fill it",
