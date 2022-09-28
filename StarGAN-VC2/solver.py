@@ -176,7 +176,9 @@ class Solver(object):
         # Start training.
         print('Start training...')
         start_time = time.time()
-        for i in tqdm(range(start_iters, self.num_iters)):
+        pbar = tqdm(range(start_iters, self.num_iters), desc="Training")
+        
+        for i in pbar:
             # =================================================================================== #
             #                             1. Preprocess input data                                #
             # =================================================================================== #
@@ -272,7 +274,7 @@ class Solver(object):
                 log = "Elapsed [{}], Iteration [{}/{}]".format(et, i+1, self.num_iters)
                 for tag, value in loss.items():
                     log += ", {}: {:.4f}".format(tag, value)
-                print(log)
+                pbar.write(log)
                 self.log_loss_tensorboard(loss, i+1)
 
             if (i+1) % self.sample_step == 0:
