@@ -1,0 +1,54 @@
+{
+    "model":{
+        "lambda_rec":10,
+        "lambda_gp":10,
+        "lambda_cls":10,
+        "sampling_rate":48000
+    },
+    "train":{
+        "batch_size":32,
+        "num_iters":200000,
+        "num_iters_decay":100000,
+        "g_lr":0.0001,
+        "d_lr":0.0001,
+        "n_critic":5,
+        "beta1":0.5,
+        "beta2":0.999,
+        "resume_iters":null
+    },
+    "test":{
+        "test_iters":100000
+    },
+    "miscellaneous":{
+        "num_workers":null,
+        "mode":"train"
+    },
+    "directories":{
+        "train_data_dir":"./preprocessed_data/mcep_train",
+        "test_data_dir":"./preprocessed_data/mcep_test",
+        "wav_dir":"./preprocessed_data/raw_data",
+        "log_dir":"./output/log",
+        "model_save_dir":"./output/ckpt",
+        "sample_dir":"./output/samples"
+    },
+    "step":{
+        "log_step":10,
+        "sample_step":10000,
+        "model_save_step":1000,
+        "lr_update_step":1000
+    },
+    "speaker_encoder":{
+        "encoder":"resnet",
+        "ckpt_path":"./speaker_encoder/output/ckpt/~~",
+        "config":{
+            "input_dim":64,
+            "proj_dim":512,
+            "layers":[3, 4, 6, 3],
+            "num_filters":[32, 64, 128, 256],
+            "encoder_type":"ASP",
+            "log_input":false,
+            "use_torch_spec":false,
+            "audio_config":null
+        }
+    }
+}
