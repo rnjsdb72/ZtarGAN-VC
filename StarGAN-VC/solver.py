@@ -13,6 +13,7 @@ from data_loader import to_categorical
 import librosa
 from utils import *
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Solver(object):
@@ -66,17 +67,17 @@ class Solver(object):
 
     def build_model(self):
         """Create a generator and a discriminator."""
-        self.generator = Generator(num_speakers=self.num_speakers)
-        self.discriminator = Discriminator(num_speakers=self.num_speakers)
+        self.G = Generator(num_speakers=self.num_speakers)
+        self.D = Discriminator(num_speakers=self.num_speakers)
 
-        self.g_optimizer = torch.optim.Adam(self.generator.parameters(), self.g_lr, [self.beta1, self.beta2])
-        self.d_optimizer = torch.optim.Adam(self.discriminator.parameters(), self.d_lr, [self.beta1, self.beta2])
+        self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
+        self.d_optimizer = torch.optim.Adam(self.D.parameters(), self.d_lr, [self.beta1, self.beta2])
 
-        self.print_network(self.generator, 'Generator')
-        self.print_network(self.discriminator, 'Discriminator')
+        self.print_network(self.G, 'Generator')
+        self.print_network(self.D, 'Discriminator')
 
-        self.generator.to(self.device)
-        self.discriminator.to(self.device)
+        self.G.to(self.device)
+        self.D.to(self.device)
 
     def print_network(self, model, name):
         """Print out the network information."""
@@ -97,8 +98,8 @@ class Solver(object):
         g_path = os.path.join(self.model_save_dir, '{}-G.ckpt'.format(resume_iters))
         d_path = os.path.join(self.model_save_dir, '{}-D.ckpt'.format(resume_iters))
 
-        self.generator.load_state_dict(torch.load(g_path, map_location=lambda storage, loc: storage))
-        self.discriminator.load_state_dict(torch.load(d_path, map_location=lambda storage, loc: storage))
+        self.G.load_state_dict(torch.load(g_path, map_location=lambda storage, loc: storage))
+        self.D.load_state_dict(torch.load(d_path, map_location=lambda storage, loc: storage))
 
     def update_lr(self, g_lr, d_lr):
         """Decay learning rates of the generator and discriminator."""
