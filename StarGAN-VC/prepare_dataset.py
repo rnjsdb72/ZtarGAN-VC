@@ -10,15 +10,16 @@ import json
 from collections import namedtuple
 from tqdm import tqdm
 
-def make_spk_meta():
+def make_spk_meta(cfgs):
 
-    dir_list = [cfgs.call_dir, cfgs.random_dir, cfgs.continuous_dir,cfgs.common_dir]
+    dir_list = [cfgs.call_dir_json, cfgs.random_dir_json, cfgs.continuous_dir_json,cfgs.common_dir_json]
     id_sex_dict = dict()
     for i in dir_list:
         for j in os.listdir(i): # 각 날짜 출력
             path_ = os.path.join(i,j)       
             for k in os.listdir(path_):   # 날짜 안에 들어있는 id_list
                 json_path = os.listdir(os.path.join(path_,k))[0] # id list 까지의 데이터
+                print(json_path)
                 with open(os.path.join(os.path.join(path_,k) ,json_path),'r') as f:
                     json_data = json.load(f)
                     sex = json_data['Speaker']['Gender'][0]
@@ -33,7 +34,7 @@ def make_spk_meta():
 
 def move_wav(cfgs):
 
-    dir_list = [cfgs.call_dir,cfgs.random_dir,cfgs.continuous_dir,cfgs.common_dir]
+    dir_list = [cfgs.call_dir_wav,cfgs.random_dir_wav,cfgs.continuous_dir_wav,cfgs.common_dir_wav]
     if not os.path.exists(cfgs.wav_dir):
         os.makedirs(f'{cfgs.wav_dir}/wav')
     for i in tqdm(dir_list):
@@ -58,10 +59,14 @@ def wav_name(cfgs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--call_dir', type=str, default="./raw_data/raw_wav/call")
-    parser.add_argument('--random_dir', type=str, default="./raw_data/raw_wav/random")
-    parser.add_argument('--continuous_dir', type=str, default="./raw_data/raw_wav/continuous")
-    parser.add_argument('--common_dir', type=str, default="./raw_data/raw_wav/common")
+    parser.add_argument('--call_dir_wav', type=str, default="./raw_data/raw_wav/call")
+    parser.add_argument('--random_dir_wav', type=str, default="./raw_data/raw_wav/random")
+    parser.add_argument('--continuous_dir_wav', type=str, default="./raw_data/raw_wav/continuous")
+    parser.add_argument('--common_dir_wav', type=str, default="./raw_data/raw_wav/common")
+    parser.add_argument('--call_dir_json', type=str, default="./raw_data/json/call")
+    parser.add_argument('--random_dir_json', type=str, default="./raw_data/json/random")
+    parser.add_argument('--continuous_dir_json', type=str, default="./raw_data/json/continuous")
+    parser.add_argument('--common_dir_json', type=str, default="./raw_data/json/common")
     parser.add_argument('--wav_dir', type=str, default="./raw_data/wav")
     parser.add_argument('--spk_meta_dir', type=str, default="./preprocessed_data/spk_meta.pkl")
     cfgs = parser.parse_args()
