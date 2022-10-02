@@ -1,6 +1,7 @@
 from ast import excepthandler
 import os
 import pickle
+import argparse
 import numpy as np
 import soundfile as sf
 from numpy.random import RandomState
@@ -10,12 +11,8 @@ from collections import namedtuple
 from tqdm import tqdm
 
 def make_spk_meta():
-    call_dir = './raw_data/json/call'
-    random_dir = './raw_data/json/random'
-    continuous_dir = './raw_data/json/continuous'
-    common_dir = './raw_data/json/common'
 
-    dir_list = [call_dir, random_dir, continuous_dir,common_dir]
+    dir_list = [cfgs.call_dir, cfgs.random_dir, cfgs.continuous_dir,cfgs.common_dir]
     id_sex_dict = dict()
     for i in dir_list:
         for j in os.listdir(i): # 각 날짜 출력
@@ -34,28 +31,24 @@ def make_spk_meta():
     with open('./preprocessed_data/spk_meta.pkl', 'wb') as f:
         pickle.dump(dict_pkl, f, pickle.HIGHEST_PROTOCOL)
 
-def move_wav():
-    call_dir = './raw_data/raw_wav/call'
-    random_dir = './raw_data/raw_wav/random'
-    continuous_dir = './raw_data/raw_wav/continuous'
-    common_dir = './raw_data/raw_wav/common'
+def move_wav(cfgs):
 
-    dir_list = [call_dir,random_dir,continuous_dir,common_dir]
-    if not os.path.exists('./raw_data/wav'):
-        os.makedirs('./raw_data/wav')
+    dir_list = [cfgs.call_dir,cfgs.random_dir,cfgs.continuous_dir,cfgs.common_dir]
+    if not os.path.exists(cfgs.wav_dir):
+        os.makedirs(f'{cfgs.wav_dir}/wav')
     for i in tqdm(dir_list):
         for j in os.listdir(i): # 각 날짜 출력
             path_ = os.path.join(i,j)       
             for k in os.listdir(path_):   # 날짜 안에 들어있는 id_list
-                spk_path = f'./raw_data/wav/{k}'
+                spk_path = f'./{cfgs.wav_dir}/wav/{k}'
                 if not os.path.exists(spk_path):
                     os.makedirs(spk_path)
                 wavs = os.listdir(os.path.join(path_,k))
                 for wav in wavs:
                     os.replace(os.path.join(os.path.join(path_, k), wav), os.path.join(spk_path, wav))
 
-def wav_name():
-    call_raw = './raw_data/wav'
+def wav_name(cfgs):
+    call_raw = cfgs.wav_dir
     for dir in tqdm(os.listdir(call_raw)):
         path_ = os.path.join(call_raw,dir)
         ct = 1
@@ -64,12 +57,17 @@ def wav_name():
             ct+=1
 
 if __name__ == "__main__":
-    args = arg_parse()
-    with open(args.cfgs, 'r') as f:
-        cfgs = json.load(f, object_hook = lambda d: namedtuple('x', d.keys())(*d.values()))
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--call_dir', type=str, default="./raw_data/raw_wav/call")
+    parser.add_argument('--random_dir', type=str, default="./raw_data/raw_wav/random")
+    parser.add_argument('--continuous_dir', type=str, default="./raw_data/raw_wav/continuous")
+    parser.add_argument('--common_dir', type=str, default="./raw_data/raw_wav/common")
+    parser.add_argument('--wav_dir', type=str, default="./raw_data/wav")
+    parser.add_argument('--spk_meta_dir', type=str, default="./preprocessed_data/spk_meta.pkl")
+    cfgs = parser.parse_args()
+    
     print('Make Speaker Meta Data...')
-    make_spk_meta()
-    move_wav()
+    make_spk_meta(cfgs)
+    move_wav(cfgs)
     print('Rename wav file as Format...')
-    wav_name()
+    wav_name(cfgs)
