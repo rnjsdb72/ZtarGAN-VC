@@ -1,8 +1,10 @@
 from encoder.data_objects.random_cycler import RandomCycler
 from encoder.data_objects.utterance import Utterance
 from pathlib import Path
-
+import os
+import pickle
 # Contains the set of utterances of a single speaker
+root_pickle = '../data/train/'
 class Speaker:
     def __init__(self, root: Path):
         self.root = root
@@ -11,9 +13,9 @@ class Speaker:
         self.utterance_cycler = None
         
     def _load_utterances(self):
-        with self.root.joinpath("_sources.txt").open("r") as sources_file:
-            sources = [l.split(",") for l in sources_file]
-        sources = {frames_fname: wave_fpath for frames_fname, wave_fpath in sources}
+        rt = '_source.pickle'
+        with open(f'{os.path.join(root_pickle,rt)}', 'rb') as f:
+            sources = pickle.load(f)
         self.utterances = [Utterance(self.root.joinpath(f), w) for f, w in sources.items()]
         self.utterance_cycler = RandomCycler(self.utterances)
                
