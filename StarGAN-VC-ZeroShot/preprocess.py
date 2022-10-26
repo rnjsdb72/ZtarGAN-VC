@@ -3,7 +3,7 @@ import json
 from collections import namedtuple
 import wave
 from multiprocessing import cpu_count
-from concurrent.futures import ProcessPoolExecutor
+from loky import ProcessPoolExecutor
 from functools import partial
 from utils import *
 from tqdm import tqdm
@@ -11,6 +11,9 @@ from sklearn.model_selection import train_test_split
 import glob
 from os.path import join, basename
 import subprocess
+import torch
+
+import audio as Audio
 
 
 def resample(spk_folder, sampling_rate, origin_wavpath, target_wavpath):
@@ -83,13 +86,21 @@ def split_data(paths):
 
     return train_paths, test_paths
 
+def get_mel_from_wav(audio, _stft):
+    audio = torch.clip(torch.FloatTensor(audio).unsqueeze(0), -1, 1)
+    audio = torch.autograd.Variable(audio, requires_grad=False)
+    melspec, energy = _stft.mel_spectrogram(audio)
+    melspec = torch.squeeze(melspec, 0).numpy().astype(np.float32)
+    energy = torch.squeeze(energy, 0).numpy().astype(np.float32)
 
-def get_spk_world_feats(spk_name, spk_paths, output_dir, sample_rate):
+    return melspec
+
+def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     """
-    Convert wav files to there MCEP features.
+    Convert wav files to there Mel features.
     :param spk_name: name of speaker dir
     :param spk_paths: paths of all wavs in speaker dir
-    :param output_dir: dir to output MCEPs to
+    :param output_dir: dir to output Mels to
     :param sample_rate: frame rate of wav files
     :return: None
     """
@@ -108,21 +119,30 @@ def get_spk_world_feats(spk_name, spk_paths, output_dir, sample_rate):
              log_f0s_std=log_f0s_std,
              coded_sps_mean=coded_sps_mean,
              coded_sps_std=coded_sps_std)
+    
+    STFT = Audio.stft.TacotronSTFT(
+            config.Mel_preprocess.stft.filter_length,
+            config.Mel_preprocess.stft.hop_length,
+            config.Mel_preprocess.stft.win_length,
+            config.Mel_preprocess.mel.n_mel_channels,
+            config.Mel_preprocess.audio.sampling_rate,
+            config.Mel_preprocess.mel.mel_fmin,
+            config.Mel_preprocess.mel.mel_fmax,
+        )
 
     for wav_file in tqdm(spk_paths):
         wav_name = basename(wav_file)
-        _, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
-        normalised_coded_sp = (coded_sp - coded_sps_mean) / coded_sps_std
+        mel_spectrogram = get_mel_from_wav(wav_file, STFT)
         np.save(os.path.join(output_dir, wav_name.replace('.wav', '.npy')),
-                normalised_coded_sp,
+                mel_spectrogram,
                 allow_pickle=False)
 
     return None
 
 
-def process_spk(spk_path, mc_dir):
+def process_spk(spk_path, mc_dir, config):
     """
-    Prcoess speaker wavs to MCEPs
+    Prcoess speaker wavs to Mels
     :param spk_path: path to speaker wav dir
     :param mc_dir: output dir for speaker data
     :return: None
@@ -134,14 +154,14 @@ def process_spk(spk_path, mc_dir):
 
     spk_name = basename(spk_path)
 
-    get_spk_world_feats(spk_name, spk_paths, mc_dir, sample_rate)
+    get_spk_mel_feats(spk_name, spk_paths, mc_dir, sample_rate, config)
 
     return None
 
 
-def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test):
+def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test, config):
     """
-    Perform train test split on a speaker and process wavs to MCEPs.
+    Perform train test split on a speaker and process wavs to Mels.
     :param spk_path: path to speaker wav dir
     :param mc_dir_train: output dir for speaker train data
     :param mc_dir_test: output dir for speaker test data
@@ -155,8 +175,8 @@ def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test):
     spk_name = basename(spk_path)
     train_paths, test_paths = split_data(spk_paths)
 
-    get_spk_world_feats(spk_name, train_paths, mc_dir_train, sample_rate)
-    get_spk_world_feats(spk_name, test_paths, mc_dir_test, sample_rate)
+    get_spk_mel_feats(spk_name, train_paths, mc_dir_train, sample_rate, config)
+    get_spk_mel_feats(spk_name, test_paths, mc_dir_test, sample_rate, config)
 
     return None
 
@@ -166,22 +186,6 @@ if __name__ == '__main__':
     with open(args.cfgs, 'r') as f:
         cfgs = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
         
-    perform_data_split_default = 'y'
-
-    # If data_split needs to be peformed
-    origin_wavpath_default = "./data/VCTK-Corpus/wav48"
-    target_wavpath_default = "./data/VCTK-Corpus/wav16"
-
-    # If data_split does NOT need to be peformed
-    origin_wavpath_train_default = ''
-    origin_wavpath_eval_default = ''
-    target_wavpath_train_default = './data/VCC2018-Corpus/wav22_train'
-    target_wavpath_eval_default = './data/VCC2018-Corpus/wav22_eval'
-
-    # Location of processed mc files
-    mc_dir_train_default = './data/mc/train'
-    mc_dir_test_default = './data/mc/test'
-
     # DATA SPLITTING.
     perform_data_split = cfgs.data_split.perform_data_split
     resample_rate = cfgs.resample_rate
@@ -191,9 +195,9 @@ if __name__ == '__main__':
     origin_wavpath_eval = cfgs.data_split.origin_wavpath_eval
     target_wavpath_train = cfgs.data_split.target_wavpath_train
     target_wavpath_eval = cfgs.data_split.target_wavpath_eval
-    mc_dir_train = cfgs.MCEP_preprocess.mc_dir_train
-    mc_dir_test = cfgs.MCEP_preprocess.mc_dir_test
-    num_workers = cfgs.MCEP_preprocess.num_workers if cfgs.MCEP_preprocess.num_workers is not None else cpu_count()
+    mc_dir_train = cfgs.Mel_preprocess.mel_dir_train
+    mc_dir_test = cfgs.Mel_preprocess.mel_dir_test
+    num_workers = cfgs.Mel_preprocess.num_workers if cfgs.Mel_preprocess.num_workers is not None else cpu_count()
 
     # Do resample.
     if perform_data_split == 'n':
@@ -207,7 +211,7 @@ if __name__ == '__main__':
             print(f'Resampling speakers in {origin_wavpath} to {target_wavpath} at {resample_rate}')
             resample_to_xk(resample_rate, origin_wavpath, target_wavpath, num_workers)
 
-    print('Making directories for MCEPs...')
+    print('Making directories for Mels...')
     os.makedirs(mc_dir_train, exist_ok=True)
     os.makedirs(mc_dir_test, exist_ok=True)
 
@@ -222,19 +226,19 @@ if __name__ == '__main__':
         for spk in tqdm(speakers):
             print(speakers)
             spk_dir = os.path.join(working_train_dir, spk)
-            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_train)))
+            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_train, cfgs)))
 
         # current wavs working with (eval)
         working_eval_dir = target_wavpath_eval
         for spk in tqdm(speakers):
             spk_dir = os.path.join(working_eval_dir, spk)
-            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_test)))
+            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_test, cfgs)))
     else:
         # current wavs we are working with (all for data split)
         working_dir = target_wavpath
         for spk in tqdm(speakers):
             spk_dir = os.path.join(working_dir, spk)
-            futures.append(executer.submit(partial(process_spk_with_split, spk_dir, mc_dir_train, mc_dir_test)))
+            futures.append(executer.submit(partial(process_spk_with_split, spk_dir, mc_dir_train, mc_dir_test, cfgs)))
 
     result_list = [future.result() for future in tqdm(futures)]
     print('Completed!')
