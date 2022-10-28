@@ -1,0 +1,5 @@
+{
+    "enc_model_path":"encoder_path",
+    "audio_fpath":"../../../preprocessed_data/embeds/wav/mel_train",
+    "embed_fpath":"../../../preprocessed_data/embeds"
+}
