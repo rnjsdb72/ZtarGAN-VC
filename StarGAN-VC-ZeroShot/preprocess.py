@@ -1,9 +1,10 @@
 import sys
 import json
+import warnings
 from collections import namedtuple
 import wave
 from multiprocessing import cpu_count
-from loky import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from utils import *
 from tqdm import tqdm
@@ -14,6 +15,8 @@ import subprocess
 import torch
 
 import audio as Audio
+
+warnings.filterwarnings("ignore")
 
 
 def resample(spk_folder, sampling_rate, origin_wavpath, target_wavpath):
@@ -86,7 +89,8 @@ def split_data(paths):
 
     return train_paths, test_paths
 
-def get_mel_from_wav(audio, _stft):
+def get_mel_from_wav(audio, _stft, sample_rate):
+    audio, _ = librosa.load(audio, sr=sample_rate, mono=True)
     audio = torch.clip(torch.FloatTensor(audio).unsqueeze(0), -1, 1)
     audio = torch.autograd.Variable(audio, requires_grad=False)
     melspec, energy = _stft.mel_spectrogram(audio)
@@ -106,19 +110,6 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     """
     f0s = []
     coded_sps = []
-    for wav_file in spk_paths:
-        f0, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
-        f0s.append(f0)
-        coded_sps.append(coded_sp)
-
-    log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
-    coded_sps_mean, coded_sps_std = coded_sp_statistics(coded_sps)
-
-    np.savez(join(output_dir, spk_name + '_stats.npz'),
-             log_f0s_mean=log_f0s_mean,
-             log_f0s_std=log_f0s_std,
-             coded_sps_mean=coded_sps_mean,
-             coded_sps_std=coded_sps_std)
     
     STFT = Audio.stft.TacotronSTFT(
             config.Mel_preprocess.stft.filter_length,
@@ -129,10 +120,10 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
             config.Mel_preprocess.mel.mel_fmin,
             config.Mel_preprocess.mel.mel_fmax,
         )
-
-    for wav_file in tqdm(spk_paths):
+    
+    for wav_file in spk_paths:
         wav_name = basename(wav_file)
-        mel_spectrogram = get_mel_from_wav(wav_file, STFT)
+        mel_spectrogram = get_mel_from_wav(wav_file, STFT, sample_rate)
         np.save(os.path.join(output_dir, wav_name.replace('.wav', '.npy')),
                 mel_spectrogram,
                 allow_pickle=False)
@@ -197,7 +188,6 @@ if __name__ == '__main__':
     target_wavpath_eval = cfgs.data_split.target_wavpath_eval
     mc_dir_train = cfgs.Mel_preprocess.mel_dir_train
     mc_dir_test = cfgs.Mel_preprocess.mel_dir_test
-    num_workers = cfgs.Mel_preprocess.num_workers if cfgs.Mel_preprocess.num_workers is not None else cpu_count()
 
     # Do resample.
     if perform_data_split == 'n':
@@ -216,31 +206,26 @@ if __name__ == '__main__':
     os.makedirs(mc_dir_test, exist_ok=True)
 
     speakers = os.listdir(origin_wavpath)
-    print(f'Number of workers: {num_workers}')
-    executer = ProcessPoolExecutor(max_workers=num_workers)
-
-    futures = []
     if perform_data_split == 'n':
         # current wavs working with (train)
         working_train_dir = target_wavpath_train
         for spk in tqdm(speakers):
-            print(speakers)
             spk_dir = os.path.join(working_train_dir, spk)
-            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_train, cfgs)))
+            process_spk(spk_dir, mc_dir_train, cfgs)
 
         # current wavs working with (eval)
         working_eval_dir = target_wavpath_eval
         for spk in tqdm(speakers):
             spk_dir = os.path.join(working_eval_dir, spk)
-            futures.append(executer.submit(partial(process_spk, spk_dir, mc_dir_test, cfgs)))
+            process_spk(spk_dir, mc_dir_test, cfgs)
     else:
         # current wavs we are working with (all for data split)
         working_dir = target_wavpath
-        for spk in tqdm(speakers):
+        outer_bar = tqdm(speakers, position=0)
+        for spk in outer_bar:
             spk_dir = os.path.join(working_dir, spk)
-            futures.append(executer.submit(partial(process_spk_with_split, spk_dir, mc_dir_train, mc_dir_test, cfgs)))
-
-    result_list = [future.result() for future in tqdm(futures)]
+            process_spk_with_split(spk_dir, mc_dir_train, mc_dir_test, cfgs)
+    
     print('Completed!')
 
     sys.exit(0)
