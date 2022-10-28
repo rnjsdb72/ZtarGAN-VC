@@ -1,3 +1,5 @@
+import pickle
+
 from encoder.data_objects.random_cycler import RandomCycler
 from encoder.data_objects.speaker_batch import SpeakerBatch
 from encoder.data_objects.speaker import Speaker
@@ -8,13 +10,15 @@ from pathlib import Path
 # TODO: improve with a pool of speakers for data efficiency
 
 class SpeakerVerificationDataset(Dataset):
-    def __init__(self, datasets_root: Path):
+    def __init__(self, datasets_root, spk_dict_path):
         self.root = datasets_root
-        speaker_dirs = [f for f in self.root.glob("*") if f.is_dir()]
+        with open(spk_dict_path+'/speakers.pkl', 'rb') as f:
+            self.speakers = pickle.load(f)
+        speaker_dirs = [f for f in self.root.glob("*") if f.is_dir()] # 각 speaker 폴더 불러옴
         if len(speaker_dirs) == 0:
             raise Exception("No speakers found. Make sure you are pointing to the directory "
                             "containing all preprocessed speaker directories.")
-        self.speakers = [Speaker(speaker_dir) for speaker_dir in speaker_dirs]
+        self.speakers = [Speaker(speaker_dir) for speaker_dir in speaker_dirs] # 각 speaker 폴더 경로를 Speaker에 입력
         self.speaker_cycler = RandomCycler(self.speakers)
 
     def __len__(self):

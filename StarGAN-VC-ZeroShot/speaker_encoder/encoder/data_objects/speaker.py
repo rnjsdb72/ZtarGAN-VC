@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import pickle
 # Contains the set of utterances of a single speaker
+
 root_pickle = '../data/train/'
 class Speaker:
     def __init__(self, root: Path):
@@ -16,7 +17,7 @@ class Speaker:
         rt = '_source.pickle'
         with open(f'{os.path.join(root_pickle,rt)}', 'rb') as f:
             sources = pickle.load(f)
-        self.utterances = [Utterance(self.root.joinpath(f), w) for f, w in sources.items()]
+        self.utterances = [Utterance(f, w) for f, w in sources.items()]
         self.utterance_cycler = RandomCycler(self.utterances)
                
     def random_partial(self, count, n_frames):

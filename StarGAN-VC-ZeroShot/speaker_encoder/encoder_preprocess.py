@@ -1,59 +1,39 @@
-from encoder.preprocess import preprocess_librispeech, preprocess_voxceleb1, preprocess_voxceleb2
-from utils.argutils import print_args
+import json
+from collections import namedtuple
 from pathlib import Path
 import argparse
+import pickle
 
 
 if __name__ == "__main__":
     class MyFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
         pass
     
-    parser = argparse.ArgumentParser(
-        description="Preprocesses audio files from datasets, encodes them as mel spectrograms and "
-                    "writes them to the disk. This will allow you to train the encoder. The "
-                    "datasets required are at least one of VoxCeleb1, VoxCeleb2 and LibriSpeech. "
-                    "Ideally, you should have all three. You should extract them as they are "
-                    "after having downloaded them and put them in a same directory, e.g.:\n"
-                    "-[datasets_root]\n"
-                    "  -LibriSpeech\n"
-                    "    -train-other-500\n"
-                    "  -VoxCeleb1\n"
-                    "    -wav\n"
-                    "    -vox1_meta.csv\n"
-                    "  -VoxCeleb2\n"
-                    "    -dev",
-        formatter_class=MyFormatter
-    )
-    parser.add_argument("datasets_root", type=Path, help=\
-        "Path to the directory containing your LibriSpeech/TTS and VoxCeleb datasets.")
-    parser.add_argument("-o", "--out_dir", type=Path, default=argparse.SUPPRESS, help=\
-        "Path to the output directory that will contain the mel spectrograms. If left out, "
-        "defaults to <datasets_root>/SV2TTS/encoder/")
-    parser.add_argument("-d", "--datasets", type=str, 
-                        default="librispeech_other,voxceleb1,voxceleb2", help=\
-        "Comma-separated list of the name of the datasets you want to preprocess. Only the train "
-        "set of these datasets will be used. Possible names: librispeech_other, voxceleb1, "
-        "voxceleb2.")
-    parser.add_argument("-s", "--skip_existing", action="store_true", help=\
-        "Whether to skip existing output files with the same name. Useful if this script was "
-        "interrupted.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("cfg", type=str)
     args = parser.parse_args()
-
-    # Process the arguments
-    args.datasets = args.datasets.split(",")
-    if not hasattr(args, "out_dir"):
-        args.out_dir = args.datasets_root.joinpath("SV2TTS", "encoder")
-    assert args.datasets_root.exists()
-    args.out_dir.mkdir(exist_ok=True, parents=True)
     
-    # Preprocess the datasets
-    print_args(args, parser)
-    preprocess_func = {
-        "librispeech_other": preprocess_librispeech,
-        "voxceleb1": preprocess_voxceleb1,
-        "voxceleb2": preprocess_voxceleb2,
-    }
-    args = vars(args)
-    for dataset in args.pop("datasets"):
-        print("Preprocessing %s" % dataset)
-        preprocess_func[dataset](**args)
+    with open(args.cfg, 'r') as f:
+        cfgs = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
+
+    os.makedirs(cfgs.out_dir, exist_ok=True)
+    
+    train_files = os.listdir(cfgs.datasets_root+'/mel_train')
+    test_files = os.listdir(cfgs.datasets_root+'/mel_test')
+    files = train_files + test_files
+    spk_dict = dict()
+    for file in tqdm(files):
+        spk = file.split('/')[-1].split('_')[0]
+        if spk_dict.get(spk):
+            spk_dict[spk].append(file)
+        else:
+            spk_dict[spk] = [file]
+        
+    sources_fpath = cfgs.out_dir.joinpath("_sources.txt")
+    
+    sources_file = sources_fpath.open("w")
+    for speaker in spk_dict.keys():
+        for file in spk_dict[speaker]:
+            sources_file.write("%s,%s\n" % (file, file))
+    
+    sources_file.close()

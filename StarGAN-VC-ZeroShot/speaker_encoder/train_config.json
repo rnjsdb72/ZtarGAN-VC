@@ -1,0 +1,12 @@
+{
+    "run_id":"",
+    "data_path":"./clean_data_root",
+    "spk_dict_path":"./data",
+    "models_dir":"outputs/models",
+    "vis_every":10,
+    "umap_eveery":100,
+    "save_every":500,
+    "backup_every":7500,
+    "resume_from":null,
+    "visdom_server":"http://localhost"
+}

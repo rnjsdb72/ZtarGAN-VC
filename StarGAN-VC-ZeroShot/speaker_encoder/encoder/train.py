@@ -13,11 +13,22 @@ def sync(device: torch.device):
     if device.type == "cuda":
         torch.cuda.synchronize(device)
 
-def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int, save_every: int,
-          backup_every: int, vis_every: int, force_restart: bool, visdom_server: str,
-          no_visdom: bool):
+def train(cfgs):
+    
+    run_id = cfgs.run_id
+    data_path = cfgs.data_path
+    models_dir = cfgs.models_dir
+    umap_every = cfgs.vis_every
+    save_every = cfgs.save_every
+    backup_every = cfgs.backup_every
+    vis_every = cfgs.vis_every
+    force_restart = cfgs.resume_from
+    visdom_server = cfgs.visdom_server
+    spk_dict_path = cfgs.spk_dict_path
+    #      no_visdom: bool
+    
     # Create a dataset and a dataloader
-    dataset = SpeakerVerificationDataset(clean_data_root)
+    dataset = SpeakerVerificationDataset(data_path, spk_dict_path)
     loader = SpeakerVerificationDataLoader(
         dataset,
         speakers_per_batch,
@@ -57,7 +68,7 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
     model.train()
     
     # Initialize the visualization environment
-    vis = Visualizations(run_id, vis_every, server=visdom_server, disabled=no_visdom)
+    vis = Visualizations(run_id, vis_every, server=visdom_server)
     vis.log_dataset(dataset)
     vis.log_params()
     device_name = str(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")

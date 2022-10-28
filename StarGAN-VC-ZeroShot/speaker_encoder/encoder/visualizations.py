@@ -25,7 +25,7 @@ colormap = np.array([
 
 
 class Visualizations:
-    def __init__(self, env_name=None, update_every=10, server="http://localhost", disabled=False):
+    def __init__(self, env_name=None, update_every=10, server="http://localhost"):
         # Tracking data
         self.last_update_timestamp = timer()
         self.update_every = update_every
@@ -33,11 +33,6 @@ class Visualizations:
         self.losses = []
         self.eers = []
         print("Updating the visualizations every %d steps." % update_every)
-        
-        # If visdom is disabled TODO: use a better paradigm for that
-        self.disabled = disabled    
-        if self.disabled:
-            return 
         
         # Set the environment name
         now = str(datetime.now().strftime("%d-%m %Hh%M"))
@@ -63,8 +58,6 @@ class Visualizations:
         self.implementation_string = ""
         
     def log_params(self):
-        if self.disabled:
-            return 
         from encoder import params_data
         from encoder import params_model
         param_string = "<b>Model parameters</b>:<br>"
@@ -78,8 +71,6 @@ class Visualizations:
         self.vis.text(param_string, opts={"title": "Parameters"})
         
     def log_dataset(self, dataset: SpeakerVerificationDataset):
-        if self.disabled:
-            return 
         dataset_string = ""
         dataset_string += "<b>Speakers</b>: %s\n" % len(dataset.speakers)
         dataset_string += "\n" + dataset.get_logs()
@@ -87,8 +78,6 @@ class Visualizations:
         self.vis.text(dataset_string, opts={"title": "Dataset"})
         
     def log_implementation(self, params):
-        if self.disabled:
-            return 
         implementation_string = ""
         for param, value in params.items():
             implementation_string += "<b>%s</b>: %s\n" % (param, value)
@@ -115,37 +104,36 @@ class Visualizations:
                       (int(np.mean(self.step_times)), int(np.std(self.step_times)))
         print("\nStep %6d   Loss: %.4f   EER: %.4f   %s" %
               (step, np.mean(self.losses), np.mean(self.eers), time_string))
-        if not self.disabled:
-            self.loss_win = self.vis.line(
-                [np.mean(self.losses)],
-                [step],
-                win=self.loss_win,
-                update="append" if self.loss_win else None,
-                opts=dict(
-                    legend=["Avg. loss"],
-                    xlabel="Step",
-                    ylabel="Loss",
-                    title="Loss",
-                )
+        self.loss_win = self.vis.line(
+            [np.mean(self.losses)],
+            [step],
+            win=self.loss_win,
+            update="append" if self.loss_win else None,
+            opts=dict(
+                legend=["Avg. loss"],
+                xlabel="Step",
+                ylabel="Loss",
+                title="Loss",
             )
-            self.eer_win = self.vis.line(
-                [np.mean(self.eers)],
-                [step],
-                win=self.eer_win,
-                update="append" if self.eer_win else None,
-                opts=dict(
-                    legend=["Avg. EER"],
-                    xlabel="Step",
-                    ylabel="EER",
-                    title="Equal error rate"
-                )
+        )
+        self.eer_win = self.vis.line(
+            [np.mean(self.eers)],
+            [step],
+            win=self.eer_win,
+            update="append" if self.eer_win else None,
+            opts=dict(
+                legend=["Avg. EER"],
+                xlabel="Step",
+                ylabel="EER",
+                title="Equal error rate"
             )
-            if self.implementation_win is not None:
-                self.vis.text(
-                    self.implementation_string + ("<b>%s</b>" % time_string), 
-                    win=self.implementation_win,
-                    opts={"title": "Training implementation"},
-                )
+        )
+        if self.implementation_win is not None:
+            self.vis.text(
+                self.implementation_string + ("<b>%s</b>" % time_string), 
+                win=self.implementation_win,
+                opts={"title": "Training implementation"},
+            )
 
         # Reset the tracking
         self.losses.clear()
@@ -166,13 +154,11 @@ class Visualizations:
         plt.scatter(projected[:, 0], projected[:, 1], c=colors)
         plt.gca().set_aspect("equal", "datalim")
         plt.title("UMAP projection (step %d)" % step)
-        if not self.disabled:
-            self.projection_win = self.vis.matplot(plt, win=self.projection_win)
+        self.projection_win = self.vis.matplot(plt, win=self.projection_win)
         if out_fpath is not None:
             plt.savefig(out_fpath)
         plt.clf()
         
     def save(self):
-        if not self.disabled:
-            self.vis.save([self.env_name])
+        self.vis.save([self.env_name])
         
