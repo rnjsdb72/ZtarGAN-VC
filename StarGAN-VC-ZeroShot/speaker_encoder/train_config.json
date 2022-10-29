@@ -1,12 +1,38 @@
 {
-    "run_id":"",
-    "data_path":"./clean_data_root",
-    "spk_dict_path":"./data",
-    "models_dir":"outputs/models",
+    "run_id":"run01",
+    "data_path":"../../../preprocessed_data/mel_train",
+    "speaker_list_path":"./data",
+    "models_dir":"./outputs/models",
     "vis_every":10,
     "umap_eveery":100,
     "save_every":500,
     "backup_every":7500,
     "resume_from":null,
-    "visdom_server":"http://localhost"
+    "visdom_server":"http://localhost",
+    "model":{
+        "model_hidden_size": 256,
+        "model_embedding_size": 256,
+        "model_num_layers": 3,
+        "learning_rate_init": 1e-4,
+        "speakers_per_batch": 64,
+        "utterances_per_speaker": 10
+    },
+    "data":{
+        "mel":{
+            "mel_window_length": 1024,
+            "mel_window_step": 256,
+            "mel_n_channels": 80
+        },
+        "audio":{
+            "sampling_rate": 44100,
+            "partials_n_frames": 160,
+            "inference_n_frames": 80,
+            "audio_norm_target_dBFS": -30
+        },
+        "voice_activation_detection":{
+            "vad_window_length": 1024,
+            "vad_moving_average_width": 8,
+            "vad_max_silence_length": 6
+        }
+    }
 }

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 # import webbrowser
 import visdom
-import umap
+import umap.umap_ as umap
 
 colormap = np.array([
     [76, 255, 0],
@@ -57,16 +57,14 @@ class Visualizations:
         self.projection_win = None
         self.implementation_string = ""
         
-    def log_params(self):
-        from encoder import params_data
-        from encoder import params_model
+    def log_params(self, cfg):
         param_string = "<b>Model parameters</b>:<br>"
-        for param_name in (p for p in dir(params_model) if not p.startswith("__")):
-            value = getattr(params_model, param_name)
+        for param_name in (p for p in cfg._asdict().keys()):
+            value = cfg._asdict()[param_name]
             param_string += "\t%s: %s<br>" % (param_name, value)
         param_string += "<b>Data parameters</b>:<br>"
-        for param_name in (p for p in dir(params_data) if not p.startswith("__")):
-            value = getattr(params_data, param_name)
+        for param_name in (p for p in cfg._asdict().keys()):
+            value = cfg._asdict()[param_name]
             param_string += "\t%s: %s<br>" % (param_name, value)
         self.vis.text(param_string, opts={"title": "Parameters"})
         
@@ -88,7 +86,7 @@ class Visualizations:
             opts={"title": "Training implementation"}
         )
 
-    def update(self, loss, eer, step):
+    def update(self, loss, eer, step, pbar):
         # Update the tracking data
         now = timer()
         self.step_times.append(1000 * (now - self.last_update_timestamp))
@@ -102,7 +100,7 @@ class Visualizations:
             return
         time_string = "Step time:  mean: %5dms  std: %5dms" % \
                       (int(np.mean(self.step_times)), int(np.std(self.step_times)))
-        print("\nStep %6d   Loss: %.4f   EER: %.4f   %s" %
+        pbar.write("\nStep %6d   Loss: %.4f   EER: %.4f   %s" %
               (step, np.mean(self.losses), np.mean(self.eers), time_string))
         self.loss_win = self.vis.line(
             [np.mean(self.losses)],

@@ -17,9 +17,12 @@ class Utterance:
         :return: the partial utterance frames and a tuple indicating the start and end of the 
         partial utterance in the complete utterance.
         """
-        frames = self.get_frames()
+        frames = self.get_frames().T
         if frames.shape[0] == n_frames:
             start = 0
+        elif frames.shape[0] < n_frames:
+            frames = np.concatenate([frames, np.zeros((n_frames-frames.shape[0], frames.shape[1]))], axis=0)
+            return frames, (0, n_frames)
         else:
             start = np.random.randint(0, frames.shape[0] - n_frames)
         end = start + n_frames

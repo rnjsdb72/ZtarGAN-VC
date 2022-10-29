@@ -5,19 +5,21 @@ import os
 import pickle
 # Contains the set of utterances of a single speaker
 
-root_pickle = '../data/train/'
+root_pickle = './data'
 class Speaker:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, speaker):
         self.root = root
-        self.name = root.name
+        self.name = speaker
         self.utterances = None
         self.utterance_cycler = None
         
     def _load_utterances(self):
-        rt = '_source.pickle'
+        # speaker 불러오기
+        speaker = ""
+        rt = f'{self.name}_sources.txt'
         with open(f'{os.path.join(root_pickle,rt)}', 'rb') as f:
-            sources = pickle.load(f)
-        self.utterances = [Utterance(f, w) for f, w in sources.items()]
+            sources = f
+            self.utterances = [Utterance(*list(map(lambda x: self.root.joinpath(x), line.decode().split(',')))) for line in sources]
         self.utterance_cycler = RandomCycler(self.utterances)
                
     def random_partial(self, count, n_frames):

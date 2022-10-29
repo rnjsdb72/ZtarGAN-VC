@@ -3,22 +3,20 @@ import pickle
 from encoder.data_objects.random_cycler import RandomCycler
 from encoder.data_objects.speaker_batch import SpeakerBatch
 from encoder.data_objects.speaker import Speaker
-from encoder.params_data import partials_n_frames
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 
 # TODO: improve with a pool of speakers for data efficiency
 
 class SpeakerVerificationDataset(Dataset):
-    def __init__(self, datasets_root, spk_dict_path):
+    def __init__(self, datasets_root, speaker_list_path):
         self.root = datasets_root
-        with open(spk_dict_path+'/speakers.pkl', 'rb') as f:
-            self.speakers = pickle.load(f)
-        speaker_dirs = [f for f in self.root.glob("*") if f.is_dir()] # 각 speaker 폴더 불러옴
-        if len(speaker_dirs) == 0:
+        with open(f'{speaker_list_path}/train_speakers.pkl', 'rb') as f:
+            speaker_lst = pickle.load(f) # 각 speaker 폴더 불러옴
+        if len(speaker_lst) == 0:
             raise Exception("No speakers found. Make sure you are pointing to the directory "
                             "containing all preprocessed speaker directories.")
-        self.speakers = [Speaker(speaker_dir) for speaker_dir in speaker_dirs] # 각 speaker 폴더 경로를 Speaker에 입력
+        self.speakers = [Speaker(self.root, speaker) for speaker in speaker_lst] # 각 speaker 폴더 경로를 Speaker에 입력
         self.speaker_cycler = RandomCycler(self.speakers)
 
     def __len__(self):
@@ -36,9 +34,12 @@ class SpeakerVerificationDataset(Dataset):
     
     
 class SpeakerVerificationDataLoader(DataLoader):
-    def __init__(self, dataset, speakers_per_batch, utterances_per_speaker, sampler=None, 
+    def __init__(self, cfg, dataset, speakers_per_batch, utterances_per_speaker, sampler=None, 
                  batch_sampler=None, num_workers=0, pin_memory=False, timeout=0, 
                  worker_init_fn=None):
+        
+        self.cfg = cfg
+        
         self.utterances_per_speaker = utterances_per_speaker
 
         super().__init__(
@@ -56,5 +57,5 @@ class SpeakerVerificationDataLoader(DataLoader):
         )
 
     def collate(self, speakers):
-        return SpeakerBatch(speakers, self.utterances_per_speaker, partials_n_frames) 
+        return SpeakerBatch(speakers, self.utterances_per_speaker, self.cfg.data.audio.partials_n_frames) 
     

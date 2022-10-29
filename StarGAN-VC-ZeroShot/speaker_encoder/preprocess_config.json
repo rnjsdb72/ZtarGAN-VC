@@ -1,4 +1,4 @@
 {
-    "datasets_root":"../../preprocessed_data",
+    "datasets_root":"../../../preprocessed_data",
     "out_dir":"./data"
 }
