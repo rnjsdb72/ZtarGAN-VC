@@ -38,8 +38,8 @@ class Profiler:
 
         name_msgs = ["%s (%d/%d):" % (name, len(deltas), n) for name, deltas in self.logs.items()]
         pad = max(map(len, name_msgs))
-        for name_msg, deltas in zip(name_msgs, self.logs.values()):
-            print("  %s  mean: %4.0fms   std: %4.0fms" % 
-                  (name_msg.ljust(pad), np.mean(deltas) * 1000, np.std(deltas) * 1000))
-        print("", flush=True)    
+        #for name_msg, deltas in zip(name_msgs, self.logs.values()):
+        #    print("  %s  mean: %4.0fms   std: %4.0fms" % 
+        #          (name_msg.ljust(pad), np.mean(deltas) * 1000, np.std(deltas) * 1000))
+        #print("", flush=True)    
         

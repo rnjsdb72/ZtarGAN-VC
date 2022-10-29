@@ -1,10 +1,13 @@
 from encoder.visualizations import Visualizations
+import warnings
 from encoder.data_objects import SpeakerVerificationDataLoader, SpeakerVerificationDataset
 from encoder.model import SpeakerEncoder
 from utils.profiler import Profiler
 from pathlib import Path
 import torch
 from tqdm import tqdm
+
+warnings.filterwarnings('ignore')
 
 def sync(device: torch.device):
     # FIXME
