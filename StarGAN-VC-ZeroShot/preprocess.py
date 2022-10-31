@@ -160,6 +160,9 @@ def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test, config):
     """
     spk_paths = glob.glob(join(spk_path, '*.wav'))
 
+    if len(spk_paths) == 0:
+        return None
+    
     # find the samplng rate of the wav files you are about to convert
     sample_rate = get_sampling_rate(spk_paths[0])
 
