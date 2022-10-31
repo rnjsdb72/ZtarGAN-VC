@@ -3,13 +3,37 @@ import torch
 import glob
 from os.path import join, basename
 import numpy as np
-from speaker_encoder.models.lstm import LSTMSpeakerEncoder
-from speaker_encoder.models.resnet import ResNetSpeakerEncoder
+from speaker_encoder.encoder.model import SpeakerEncoder
 
 min_length = 256  # Since we slice 256 frames from each utterance when training.
 
+def to_categorical(y, num_classes=None):
+    """Converts a class vector (integers) to binary class matrix.
+    E.g. for use with categorical_crossentropy.
+    # Arguments
+        y: class vector to be converted into a matrix
+            (integers from 0 to num_classes).
+        num_classes: total number of classes.
+    # Returns
+        A binary matrix representation of the input. The classes axis
+        is placed last.
+    From Keras np_utils
+    """
+    y = np.array(y, dtype='int')
+    input_shape = y.shape
+    if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
+        input_shape = tuple(input_shape[:-1])
+    y = y.ravel()
+    if not num_classes:
+        num_classes = np.max(y) + 1
+    n = y.shape[0]
+    categorical = np.zeros((n, num_classes), dtype=np.float32)
+    categorical[np.arange(n), y] = 1
+    output_shape = input_shape + (num_classes,)
+    categorical = np.reshape(categorical, output_shape)
+    return categorical
 
-def to_categorical(y, cfg_speaker_encoder, num_classes=None):
+def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
     E.g. for use with categorical_crossentropy.
     # Arguments
@@ -22,12 +46,7 @@ def to_categorical(y, cfg_speaker_encoder, num_classes=None):
     From Keras np_utils
     """
     # 모델 불러오기
-    if cfg_speaker_encoder.encoder == "resnet":
-        enc = LSTMSpeakerEncoder(**cfg_speaker_encoder.config)
-    elif cfg_speaker_encoder.encoder == "lstm":
-        enc = ResNetSpeakerEncoder(**cfg_speaker_encoder.config)
-    else:
-        assert cfg_speaker_encoder.encoder not in ['resnet', 'lstm'], "Unknown Speaker Encoder - please choose either 'åresnet' or 'lstm' "
+    enc = SpeakerEncoder(**cfg_speaker_encoder.config)
     
     # ckpt 입력
     enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=torch.device('cuda' if torch.cuda.is_available else 'cpu')))
@@ -83,9 +102,10 @@ class MyDataset(data.Dataset):
         mc = self.sample_seg(mc)
         mc = np.transpose(mc, (1, 0))  # (T, D) -> (D, T), since pytorch need feature having shape
         # to one-hot
-        spk_cat = np.squeeze(to_categorical([spk_idx], self.cfg_speaker_encoder, num_classes=len(self.speakers)))
-
-        return torch.FloatTensor(mc), torch.LongTensor([spk_idx]).squeeze_(), torch.FloatTensor(spk_cat)
+        spk_emb = np.squeeze(to_embedding([spk_idx], self.cfg_speaker_encoder, num_classes=len(self.speakers)))
+        spk_cat = np.squeeze(to_categorical([spk_idx], num_classes=len(self.speakers)))
+        
+        return torch.FloatTensor(mc), torch.LongTensor([spk_idx]).squeeze_(), torch.FloatTensor(spk_emb), torch.FloatTensor(spk_cat)
 
 
 class TestDataset(object):
@@ -113,8 +133,12 @@ class TestDataset(object):
         self.mcep_std_trg = self.trg_spk_stats['coded_sps_std']
         self.src_wav_dir = f'{wav_dir}/{src_spk}'
         self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk], self.spk2idx[trg_spk]
-        spk_cat_src = to_categorical([self.spk_idx_src], cfg_speaker_encoder, num_classes=len(self.speakers))
-        spk_cat_trg = to_categorical([self.spk_idx_trg], cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_src = to_embedding([self.spk_idx_src], cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_trg = to_embedding([self.spk_idx_trg], cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_cat_src = to_categorical([self.spk_idx_src], num_classes=len(self.speakers))
+        spk_cat_trg = to_categorical([self.spk_idx_trg], num_classes=len(self.speakers))
+        self.spk_emb_src = spk_emb_src
+        self.spk_emb_trg = spk_emb_trg
         self.spk_c_org = spk_cat_src
         self.spk_c_trg = spk_cat_trg
 

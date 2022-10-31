@@ -9,7 +9,7 @@ import os
 from os.path import join, basename, dirname, split
 import time
 import datetime
-from data_loader import to_categorical
+from data_loader import to_categorical, to_embedding
 import librosa
 from utils import *
 from tqdm import tqdm
@@ -26,6 +26,7 @@ class Solver(object):
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.sampling_rate = config.model.sampling_rate
+        self.cfg_speaker_encoder = config.speaker_encoder
 
         # Model configurations.
         self.num_speakers = num_speakers
@@ -141,8 +142,9 @@ class Solver(object):
 
     def sample_spk_c(self, size):
         spk_c = np.random.randint(0, self.num_speakers, size=size)
+        spk_emb = to_embedding(spk_c, self.cfg_speaker_encoder)
         spk_c_cat = to_categorical(spk_c, self.num_speakers)
-        return torch.LongTensor(spk_c), torch.FloatTensor(spk_c_cat)
+        return torch.LongTensor(spk_c), torch.FloatTensor(spk_emb), torch.FloatTensor(spk_c_cat)
 
     def classification_loss(self, logit, target):
         """Compute softmax cross entropy loss."""
@@ -189,21 +191,23 @@ class Solver(object):
 
             # Fetch labels.
             try:
-                mc_real, spk_label_org, spk_c_org = next(data_iter)
+                mc_real, spk_label_org, spk_emb_org, spk_c_org = next(data_iter)
             except:
                 data_iter = iter(train_loader)
-                mc_real, spk_label_org, spk_c_org = next(data_iter)
+                mc_real, spk_label_org, spk_emb_org, spk_c_org = next(data_iter)
 
             mc_real.unsqueeze_(1) # (B, D, T) -> (B, 1, D, T) for conv2d
 
             # Generate target domain labels randomly.
             # spk_label_trg: int,   spk_c_trg:one-hot representation 
-            spk_label_trg, spk_c_trg = self.sample_spk_c(mc_real.size(0)) 
+            spk_label_trg, spk_emb_trg, spk_c_trg = self.sample_spk_c(mc_real.size(0)) 
 
             mc_real = mc_real.to(self.device)                         # Input mc.
             spk_label_org = spk_label_org.to(self.device)             # Original spk labels.
             spk_c_org = spk_c_org.to(self.device)                     # Original spk acc conditioning.
+            spk_emb_org = spk_emb_org.to(self.device)
             spk_label_trg = spk_label_trg.to(self.device)             # Target spk labels for classification loss for G.
+            spk_emb_trg = spk_emb_trg.to(self.device)
             spk_c_trg = spk_c_trg.to(self.device)                     # Target spk conditioning.
 
             # =================================================================================== #
@@ -217,7 +221,7 @@ class Solver(object):
             
 
             # Compute loss with fake mc feats.
-            mc_fake = self.G(mc_real, spk_c_trg)
+            mc_fake = self.G(mc_real, spk_emb_trg)
             out_src, out_cls_spks = self.D(mc_fake.detach())
             d_loss_fake = torch.mean(out_src)
 
@@ -246,13 +250,13 @@ class Solver(object):
             
             if (i+1) % self.n_critic == 0:
                 # Original-to-target domain.
-                mc_fake = self.G(mc_real, spk_c_trg)
+                mc_fake = self.G(mc_real, spk_emb_trg)
                 out_src, out_cls_spks = self.D(mc_fake)
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls_spks = self.classification_loss(out_cls_spks, spk_label_trg)
 
                 # Target-to-original domain.
-                mc_reconst = self.G(mc_fake, spk_c_org)
+                mc_reconst = self.G(mc_fake, spk_emb_org)
                 g_loss_rec = torch.mean(torch.abs(mc_real - mc_reconst))
 
                 # Backward and optimize.
@@ -296,7 +300,7 @@ class Solver(object):
                         
                         coded_sp_norm = (coded_sp - self.test_loader.mcep_mean_src) / self.test_loader.mcep_std_src
                         coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(self.device)
-                        conds = torch.FloatTensor(self.test_loader.spk_c_trg).to(self.device)
+                        conds = torch.FloatTensor(self.test_loader.spk_emb_trg).to(self.device)
                         # print(conds.size())
                         coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
                         coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * self.test_loader.mcep_std_trg + self.test_loader.mcep_mean_trg
