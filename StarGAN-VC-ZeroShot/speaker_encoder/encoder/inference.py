@@ -1,4 +1,3 @@
-from encoder.params_data import *
 from encoder.model import SpeakerEncoder
 from encoder.audio import preprocess_wav   # We want to expose this function from here
 from matplotlib import cm
@@ -6,13 +5,14 @@ from encoder import audio
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 import torch
 
 _model = None # type: SpeakerEncoder
 _device = None # type: torch.device
 
 
-def load_model(weights_fpath: Path, device=None):
+def load_model(weights_fpath: Path, cfg, device=None):
     """
     Loads the model in memory. If this function is not explicitely called, it will be run on the 
     first call to embed_frames() with the default weights file.
@@ -24,12 +24,13 @@ def load_model(weights_fpath: Path, device=None):
     """
     # TODO: I think the slow loading of the encoder might have something to do with the device it
     #   was saved on. Worth investigating.
+    weights_fpath = Path(weights_fpath)
     global _model, _device
     if device is None:
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     elif isinstance(device, str):
         _device = torch.device(device)
-    _model = SpeakerEncoder(_device, torch.device("cpu"))
+    _model = SpeakerEncoder(_device, torch.device("cpu"), cfg)
     checkpoint = torch.load(weights_fpath)
     _model.load_state_dict(checkpoint["model_state"])
     _model.eval()
@@ -56,7 +57,7 @@ def embed_frames_batch(frames_batch):
     return embed
 
 
-def compute_partial_slices(n_samples, partial_utterance_n_frames=partials_n_frames,
+def compute_partial_slices(n_samples, args,
                            min_pad_coverage=0.75, overlap=0.5):
     """
     Computes where to split an utterance waveform and its corresponding mel spectrogram to obtain 
@@ -85,7 +86,8 @@ def compute_partial_slices(n_samples, partial_utterance_n_frames=partials_n_fram
     assert 0 <= overlap < 1
     assert 0 < min_pad_coverage <= 1
     
-    samples_per_frame = int((sampling_rate * mel_window_step / 1000))
+    partial_utterance_n_frames = args.audio.partials_n_frames
+    samples_per_frame = int((args.audio.sampling_rate * args.mel.mel_window_step / 1000))
     n_frames = int(np.ceil((n_samples + 1) / samples_per_frame))
     frame_step = max(int(np.round(partial_utterance_n_frames * (1 - overlap))), 1)
 
@@ -108,7 +110,7 @@ def compute_partial_slices(n_samples, partial_utterance_n_frames=partials_n_fram
     return wav_slices, mel_slices
 
 
-def embed_utterance(wav, using_partials=True, return_partials=False, **kwargs):
+def embed_utterance(wav, args, using_partials=True, return_partials=False, **kwargs):
     """
     Computes an embedding for a single utterance.
     
@@ -136,7 +138,7 @@ def embed_utterance(wav, using_partials=True, return_partials=False, **kwargs):
         return embed
     
     # Compute where to split the utterance into partials and pad if necessary
-    wave_slices, mel_slices = compute_partial_slices(len(wav), **kwargs)
+    wave_slices, mel_slices = compute_partial_slices(len(wav), args, **kwargs)
     max_wave_length = wave_slices[-1].stop
     if max_wave_length >= len(wav):
         wav = np.pad(wav, (0, max_wave_length - len(wav)), "constant")

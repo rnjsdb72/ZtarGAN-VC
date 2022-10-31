@@ -1,4 +1,3 @@
-from encoder.params_model import model_embedding_size as speaker_embedding_size
 from encoder import inference as encoder
 from pathlib import Path
 import json
@@ -23,7 +22,7 @@ if __name__ == '__main__':
 
     # Load the models one by one.
     print("Preparing the encoder...")
-    encoder.load_model(args.enc_model_fpath)
+    encoder.load_model(args.enc_model_fpath, args)
     print("Insert the wav file name...")
     try:
         # Get the reference audio filepath
@@ -34,7 +33,7 @@ if __name__ == '__main__':
         # Then we derive the embedding. There are many functions and parameters that the
         # speaker encoder interfaces. These are mostly for in-depth research. You will typically
         # only use this function (with its default parameters):
-            embed = encoder.embed_utterance(mel)
+            embed = encoder.embed_utterance(mel, args)
             embed_path = args.embed_fpath / \
                 filename.split('/')[-1]
             np.save(embed_path, embed)

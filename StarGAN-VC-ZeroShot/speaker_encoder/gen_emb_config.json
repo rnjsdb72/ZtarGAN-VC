@@ -1,5 +1,31 @@
 {
-    "enc_model_path":"encoder_path",
+    "enc_model_fpath":"../../ckpt/se_step-3000000.pt",
     "audio_fpath":"../../../preprocessed_data/embeds/wav/mel_train",
-    "embed_fpath":"../../../preprocessed_data/embeds"
+    "embed_fpath":"../../../preprocessed_data/embeds",
+    "model":{
+        "model_hidden_size": 256,
+        "model_embedding_size": 256,
+        "model_num_layers": 3,
+        "learning_rate_init": 1e-4,
+        "speakers_per_batch": 64,
+        "utterances_per_speaker": 10
+    },
+    "data":{
+        "mel":{
+            "mel_window_length": 25,
+            "mel_window_step": 10,
+            "mel_n_channels": 40
+        },
+        "audio":{
+            "sampling_rate": 16000,
+            "partials_n_frames": 160,
+            "inference_n_frames": 80,
+            "audio_norm_target_dBFS": -30
+        },
+        "voice_activation_detection":{
+            "vad_window_length": 30,
+            "vad_moving_average_width": 8,
+            "vad_max_silence_length": 6
+        }
+    }
 }
