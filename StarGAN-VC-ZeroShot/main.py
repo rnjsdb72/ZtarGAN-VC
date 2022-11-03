@@ -34,6 +34,7 @@ def main(config, speakers):
 
     num_workers_ = config.miscellaneous.num_workers if config.miscellaneous.num_workers is not None else cpu_count()
     
+    print('Get DataLoader!')
     # Data loader.
     train_loader = get_loader(speakers, config.speaker_encoder, config.directories.train_data_dir, config.train.batch_size, 'train', num_workers=num_workers_)
     # TODO: currently only used to output a sample whilst training

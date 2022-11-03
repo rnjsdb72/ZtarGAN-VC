@@ -110,6 +110,19 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     """
     f0s = []
     coded_sps = []
+    for wav_file in spk_paths:
+        f0, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
+        f0s.append(f0)
+        coded_sps.append(coded_sp)
+
+    log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
+    coded_sps_mean, coded_sps_std = coded_sp_statistics(coded_sps)
+
+    np.savez(join(output_dir, spk_name + '_stats.npz'),
+             log_f0s_mean=log_f0s_mean,
+             log_f0s_std=log_f0s_std,
+             coded_sps_mean=coded_sps_mean,
+             coded_sps_std=coded_sps_std)
     
     STFT = Audio.stft.TacotronSTFT(
             config.Mel_preprocess.stft.filter_length,

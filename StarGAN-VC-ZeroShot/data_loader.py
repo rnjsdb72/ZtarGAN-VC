@@ -4,8 +4,9 @@ import glob
 from os.path import join, basename
 import numpy as np
 from speaker_encoder.encoder.model import SpeakerEncoder
+from tqdm import tqdm
 
-min_length = 256  # Since we slice 256 frames from each utterance when training.
+min_length = 0  # Since we slice 256 frames from each utterance when training.
 
 def to_categorical(y, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
@@ -82,7 +83,7 @@ class MyDataset(data.Dataset):
         new_mc_files = []
         for mc_file in mc_files:
             mc = np.load(mc_file)
-            if mc.shape[0] > min_length:
+            if mc.shape[0] > tqdm(min_length):
                 new_mc_files.append(mc_file)
         return new_mc_files
 
