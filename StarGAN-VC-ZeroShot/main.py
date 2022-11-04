@@ -36,7 +36,7 @@ def main(config, speakers):
     
     print('Get DataLoader!')
     # Data loader.
-    train_loader = get_loader(speakers, config.speaker_encoder, config.directories.train_data_dir, config.train.batch_size, 'train', num_workers=num_workers_)
+    train_loader = get_loader(speakers, config.speaker_encoder, config.directories.train_data_dir, config.train.batch_size, 'train', num_workers=num_workers_, config.prefix)
     # TODO: currently only used to output a sample whilst training
     test_loader = TestDataset(speakers, config.speaker_encoder, config.directories.test_data_dir, config.directories.wav_dir, src_spk=src_spk, trg_spk=trg_spk)
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # no. of spks
     if config.dataset == 'Aidatatang-200zh':
-        speakers = list(set(map(lambda x: x.split('/')[-1].split('S')[0], glob(config.directories.train_data_dir+'/*'))))
+        speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*.npz'))))
     else:
         speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*'))))
 

@@ -1,5 +1,6 @@
 {
     "dataset":"Aidatatang-200zh",
+    "prefix":[5,10],
     "model":{
         "lambda_rec":10,
         "lambda_gp":10,

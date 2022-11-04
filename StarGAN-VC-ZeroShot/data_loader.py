@@ -61,14 +61,18 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
 class MyDataset(data.Dataset):
     """Dataset for MCEP features and speaker labels."""
 
-    def __init__(self, speakers_using, cfg_speaker_encoder, data_dir):
+    def __init__(self, speakers_using, cfg_speaker_encoder, data_dir, prefix):
+        self.prefix = prefix
         self.speakers = speakers_using
         self.spk2idx = dict(zip(self.speakers, range(len(self.speakers))))
         self.prefix_length = len(self.speakers[0])
         self.cfg_speaker_encoder = cfg_speaker_encoder
 
         mc_files = glob.glob(join(data_dir, '*.npy'))
-        mc_files = [i for i in mc_files if basename(i)[:self.prefix_length] in self.speakers]
+        if not self.prefix:
+            mc_files = [i for i in mc_files if basename(i)[:self.prefix_length] in self.speakers]
+        else:
+            mc_files = mc_files = [i for i in mc_files if basename(i)[self.prefix[0]:self.prefix[1]] in self.speakers]
         self.mc_files = self.rm_too_short_utt(mc_files)
         self.num_files = len(self.mc_files)
         print("\t Number of training samples: ", self.num_files)
