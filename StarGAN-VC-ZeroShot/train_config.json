@@ -30,7 +30,7 @@
     "directories":{
         "train_data_dir":"../../preprocessed_data/mel_train",
         "test_data_dir":"../../preprocessed_data/mel_test",
-        "wav_dir":"../../preprocessed_data/raw_data",
+        "wav_dir":"../../preprocessed_data/mel_train",
         "log_dir":"./output/log",
         "model_save_dir":"./output/ckpt",
         "sample_dir":"./output/samples"

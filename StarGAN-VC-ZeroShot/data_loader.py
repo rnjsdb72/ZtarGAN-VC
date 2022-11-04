@@ -141,8 +141,12 @@ class TestDataset(object):
         self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
         self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
         
-        self.src_mc = np.load(self.src_wav_dir)
-        self.trg_mc = np.load(self.trg_wav_dir)
+        try:
+            self.src_mc = np.load(self.src_wav_dir)
+            self.trg_mc = np.load(self.trg_wav_dir)
+        except:
+            self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0])
+            self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0])
 
         spk_emb_src = to_embedding([self.src_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
         spk_emb_trg = to_embedding([self.trg_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
