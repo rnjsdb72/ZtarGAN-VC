@@ -157,8 +157,8 @@ class TestDataset(object):
         return batch_data
 
 
-def get_loader(speakers_using, cfg_speaker_encoder, data_dir, batch_size=32, mode='train', num_workers=1):
-    dataset = MyDataset(speakers_using, cfg_speaker_encoder, data_dir)
+def get_loader(speakers_using, cfg_speaker_encoder, data_dir, batch_size=32, mode='train', num_workers=1, prefix=None):
+    dataset = MyDataset(speakers_using, cfg_speaker_encoder, data_dir, prefix)
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
                                   shuffle=(mode == 'train'),
