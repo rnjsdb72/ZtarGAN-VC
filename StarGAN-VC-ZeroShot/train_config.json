@@ -1,5 +1,7 @@
 {
     "dataset":"Aidatatang-200zh",
+    "src_spk":"G0002",
+    "trg_spk":"G7072",
     "prefix":[5,10],
     "model":{
         "lambda_rec":10,

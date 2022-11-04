@@ -46,11 +46,12 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
         is placed last.
     From Keras np_utils
     """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 모델 불러오기
     enc = SpeakerEncoder(device, device, cfg_speaker_encoder.config)
     
     # ckpt 입력
-    enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=torch.device('cuda' if torch.cuda.is_available else 'cpu')))
+    enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=device))
     
     # embedding 뽑기
     emb = enc(y)
@@ -103,11 +104,11 @@ class MyDataset(data.Dataset):
         filename = self.mc_files[index]
         spk = basename(filename).split('_')[0]
         spk_idx = self.spk2idx[spk]
-        mc = np.load(filename)
-        mc = self.sample_seg(mc)
+        mc_ = np.load(filename)
+        mc = self.sample_seg(mc_)
         mc = np.transpose(mc, (1, 0))  # (T, D) -> (D, T), since pytorch need feature having shape
         # to one-hot
-        spk_emb = np.squeeze(to_embedding([spk_idx], self.cfg_speaker_encoder, num_classes=len(self.speakers)))
+        spk_emb = np.squeeze(to_embedding(mc_, self.cfg_speaker_encoder, num_classes=len(self.speakers)))
         spk_cat = np.squeeze(to_categorical([spk_idx], num_classes=len(self.speakers)))
         
         return torch.FloatTensor(mc), torch.LongTensor([spk_idx]).squeeze_(), torch.FloatTensor(spk_emb), torch.FloatTensor(spk_cat)
@@ -125,8 +126,8 @@ class TestDataset(object):
         self.trg_spk = trg_spk
         self.mc_files = sorted(glob.glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
 
-        self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk)))
-        self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk)))
+        self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk).replace('*', '')))
+        self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk).replace('*', '')))
 
         self.logf0s_mean_src = self.src_spk_stats['log_f0s_mean']
         self.logf0s_std_src = self.src_spk_stats['log_f0s_std']
@@ -137,9 +138,14 @@ class TestDataset(object):
         self.mcep_mean_trg = self.trg_spk_stats['coded_sps_mean']
         self.mcep_std_trg = self.trg_spk_stats['coded_sps_std']
         self.src_wav_dir = f'{wav_dir}/{src_spk}'
-        self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk], self.spk2idx[trg_spk]
-        spk_emb_src = to_embedding([self.spk_idx_src], cfg_speaker_encoder, num_classes=len(self.speakers))
-        spk_emb_trg = to_embedding([self.spk_idx_trg], cfg_speaker_encoder, num_classes=len(self.speakers))
+        self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
+        self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
+        
+        self.src_mc = np.load(self.src_wav_dir)
+        self.trg_mc = np.load(self.trg_wav_dir)
+
+        spk_emb_src = to_embedding([self.src_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_trg = to_embedding([self.trg_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
         spk_cat_src = to_categorical([self.spk_idx_src], num_classes=len(self.speakers))
         spk_cat_trg = to_categorical([self.spk_idx_trg], num_classes=len(self.speakers))
         self.spk_emb_src = spk_emb_src

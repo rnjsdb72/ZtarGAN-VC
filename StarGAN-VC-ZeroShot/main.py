@@ -29,8 +29,12 @@ def main(config, speakers):
     num_speakers = len(speakers)
 
     # TODO: remove hard coding of 'test' speakers
-    src_spk = speakers[0]
-    trg_spk = speakers[1]
+    if config.dataset == 'Aidatatang-200zh':
+        src_spk = '*' + config.src_spk
+        trg_spk = '*' + config.trg_spk
+    else:
+        src_spk = config.src_spk
+        trg_spk = config.trg_spk
 
     num_workers_ = config.miscellaneous.num_workers if config.miscellaneous.num_workers is not None else cpu_count()
     
