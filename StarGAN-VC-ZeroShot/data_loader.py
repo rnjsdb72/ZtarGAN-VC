@@ -81,9 +81,9 @@ class MyDataset(data.Dataset):
 
     def rm_too_short_utt(self, mc_files, min_length=min_length):
         new_mc_files = []
-        for mc_file in mc_files:
+        for mc_file in tqdm(mc_files):
             mc = np.load(mc_file)
-            if mc.shape[0] > tqdm(min_length):
+            if mc.shape[0] > min_length:
                 new_mc_files.append(mc_file)
         return new_mc_files
 
