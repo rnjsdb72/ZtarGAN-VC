@@ -47,7 +47,7 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     From Keras np_utils
     """
     # 모델 불러오기
-    enc = SpeakerEncoder(**cfg_speaker_encoder.config)
+    enc = SpeakerEncoder(device, device, cfg_speaker_encoder.config)
     
     # ckpt 입력
     enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=torch.device('cuda' if torch.cuda.is_available else 'cpu')))
