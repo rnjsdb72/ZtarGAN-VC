@@ -36,7 +36,7 @@ def main(config, speakers):
     
     print('Get DataLoader!')
     # Data loader.
-    train_loader = get_loader(speakers, config.speaker_encoder, config.directories.train_data_dir, config.train.batch_size, 'train', num_workers=num_workers_, config.prefix)
+    train_loader = get_loader(speakers, config.speaker_encoder, config.directories.train_data_dir, config.train.batch_size, 'train', num_workers=num_workers_, prefix=config.prefix)
     # TODO: currently only used to output a sample whilst training
     test_loader = TestDataset(speakers, config.speaker_encoder, config.directories.test_data_dir, config.directories.wav_dir, src_spk=src_spk, trg_spk=trg_spk)
 
