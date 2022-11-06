@@ -5,9 +5,8 @@ from os.path import join, basename
 import numpy as np
 from speaker_encoder.encoder.model import SpeakerEncoder
 from tqdm import tqdm
-from einops import rearrange
 
-min_length = 0  # Since we slice 256 frames from each utterance when training.
+min_length = 128  # Since we slice 256 frames from each utterance when training.
 
 def to_categorical(y, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
@@ -47,16 +46,24 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
         is placed last.
     From Keras np_utils
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
+    loss_device = torch.device('cpu')
     # 모델 불러오기
-    enc = SpeakerEncoder(device, device, cfg_speaker_encoder.config)
+    enc = SpeakerEncoder(device, loss_device, cfg_speaker_encoder.config)
     
     # ckpt 입력
     enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=device)['model_state'], strict=False)
     
     # embedding 뽑기
-    y = rearrange(torch.tensor(y), "b c l -> b l c").to(device)
-    emb = enc(y).cpu().detach().numpy()
+    y_ = torch.tensor(y)
+    if len(y_.shape) == 3:
+        y = y_.to(device)
+        emb = enc(y).cpu().detach().numpy()
+    elif len(y_.shape) == 2:
+        y = torch.tensor([y]).to(device)
+        emb = enc(y).cpu().detach().numpy()
+    else:
+        return np.empty([1, 256])
     
     return emb
 
@@ -80,7 +87,7 @@ class MyDataset(data.Dataset):
         self.num_files = len(self.mc_files)
         print("\t Number of training samples: ", self.num_files)
         for f in self.mc_files:
-            mc = np.load(f)
+            mc = np.load(f).T
             if mc.shape[0] <= min_length:
                 print(f)
                 raise RuntimeError(
@@ -89,7 +96,7 @@ class MyDataset(data.Dataset):
     def rm_too_short_utt(self, mc_files, min_length=min_length):
         new_mc_files = []
         for mc_file in tqdm(mc_files):
-            mc = np.load(mc_file)
+            mc = np.load(mc_file).T
             if mc.shape[0] > min_length:
                 new_mc_files.append(mc_file)
         return new_mc_files
@@ -106,7 +113,7 @@ class MyDataset(data.Dataset):
         filename = self.mc_files[index]
         spk = basename(filename).split('_')[0]
         spk_idx = self.spk2idx[spk]
-        mc_ = np.load(filename)
+        mc_ = np.load(filename).T
         mc = self.sample_seg(mc_)
         mc = np.transpose(mc, (1, 0))  # (T, D) -> (D, T), since pytorch need feature having shape
         # to one-hot
@@ -144,11 +151,11 @@ class TestDataset(object):
         self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
         
         try:
-            self.src_mc = np.load(self.src_wav_dir)
-            self.trg_mc = np.load(self.trg_wav_dir)
+            self.src_mc = np.load(self.src_wav_dir).T
+            self.trg_mc = np.load(self.trg_wav_dir).T
         except:
-            self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0])
-            self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0])
+            self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0]).T
+            self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0]).T
 
         spk_emb_src = to_embedding([self.src_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
         spk_emb_trg = to_embedding([self.trg_mc], cfg_speaker_encoder, num_classes=len(self.speakers))

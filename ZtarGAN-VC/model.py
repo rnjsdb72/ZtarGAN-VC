@@ -21,9 +21,9 @@ class ResidualBlock(nn.Module):
 
 class Generator(nn.Module):
     """Generator network."""
-    def __init__(self, conv_dim=64, num_speakers=10, repeat_num=6):
+    def __init__(self, conv_dim=64, emb_size=256, repeat_num=6):
         super(Generator, self).__init__()
-        c_dim = num_speakers
+        c_dim = emb_size
         layers = []
         layers.append(nn.Conv2d(1+c_dim, conv_dim, kernel_size=(3, 9), padding=(1, 4), bias=False))
         layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
@@ -60,7 +60,7 @@ class Generator(nn.Module):
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
-    def __init__(self, input_size=(36, 256), conv_dim=64, repeat_num=5, num_speakers=10):
+    def __init__(self, input_size=(80, 256), conv_dim=64, repeat_num=5, num_speakers=10):
         super(Discriminator, self).__init__()
         layers = []
         layers.append(nn.Conv2d(1, conv_dim, kernel_size=4, stride=2, padding=1))
@@ -76,7 +76,7 @@ class Discriminator(nn.Module):
         kernel_size_1 = int(input_size[1] / np.power(2, repeat_num)) # 8
         self.main = nn.Sequential(*layers)
         self.conv_dis = nn.Conv2d(curr_dim, 1, kernel_size=(kernel_size_0, kernel_size_1), stride=1, padding=0, bias=False) # padding should be 0
-        self.conv_clf_spks = nn.Conv2d(curr_dim, num_speakers, kernel_size=(kernel_size_0, kernel_size_1), stride=1, padding=0, bias=False)  # for num_speaker
+        self.conv_clf_spks = nn.Conv2d(curr_dim, num_speakers, kernel_size=(kernel_size_0, kernel_size_1), stride=1, padding=0, bias=False)
         
     def forward(self, x):
         h = self.main(x)

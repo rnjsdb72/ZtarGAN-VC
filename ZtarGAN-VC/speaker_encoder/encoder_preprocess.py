@@ -24,6 +24,8 @@ if __name__ == "__main__":
     print("Generating Train Data's Speaker Dictionary")
     spk_dict = dict()
     for file in tqdm(train_files):
+        if file.endswith('npz'):
+            continue
         spk = file.split('/')[-1].split('_')[0]
         if spk_dict.get(spk):
             spk_dict[spk].append(file)

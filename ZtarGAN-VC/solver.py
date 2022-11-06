@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
-    def __init__(self, train_loader, test_loader, num_speakers, config):
+    def __init__(self, train_loader, test_loader, num_speakers, emb_size, config):
         """Initialize configurations."""
 
         # Data loader.
@@ -30,6 +30,7 @@ class Solver(object):
 
         # Model configurations.
         self.num_speakers = num_speakers
+        self.emb_size = emb_size
         self.lambda_rec = config.model.lambda_rec
         self.lambda_gp = config.model.lambda_gp
         self.lambda_cls = config.model.lambda_cls
@@ -68,7 +69,7 @@ class Solver(object):
 
     def build_model(self):
         """Create a generator and a discriminator."""
-        self.G = Generator(num_speakers=self.num_speakers)
+        self.G = Generator(emb_size=self.emb_size)
         self.D = Discriminator(num_speakers=self.num_speakers)
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
@@ -142,9 +143,12 @@ class Solver(object):
 
     def sample_spk_c(self, size):
         spk_c = np.random.randint(0, self.num_speakers, size=size)
-        spk_emb = to_embedding(spk_c, self.cfg_speaker_encoder)
+        embs = []
+        for spk in spk_c:
+            spk_emb = to_embedding(spk, self.cfg_speaker_encoder)
+            embs.append(spk_emb[0].tolist())
         spk_c_cat = to_categorical(spk_c, self.num_speakers)
-        return torch.LongTensor(spk_c), torch.FloatTensor(spk_emb), torch.FloatTensor(spk_c_cat)
+        return torch.LongTensor(spk_c), torch.FloatTensor(embs), torch.FloatTensor(spk_c_cat)
 
     def classification_loss(self, logit, target):
         """Compute softmax cross entropy loss."""

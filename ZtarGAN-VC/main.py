@@ -45,7 +45,7 @@ def main(config, speakers):
     test_loader = TestDataset(speakers, config.speaker_encoder, config.directories.test_data_dir, config.directories.wav_dir, src_spk=src_spk, trg_spk=trg_spk)
 
     # Solver for training and testing StarGAN.
-    solver = Solver(train_loader, test_loader, num_speakers, config)
+    solver = Solver(train_loader, test_loader, num_speakers, config.speaker_encoder.config.model.model_embedding_size, config)
 
     if config.miscellaneous.mode == 'train':
         solver.train()
