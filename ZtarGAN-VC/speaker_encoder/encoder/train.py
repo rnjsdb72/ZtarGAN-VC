@@ -57,14 +57,11 @@ def train(cfgs):
     backup_dir = models_dir.joinpath(run_id + "_backups")
 
     # Load any existing model
-    if not force_restart:
+    if force_restart:
         if state_fpath.exists():
             print("Found existing model \"%s\", loading it and resuming training." % run_id)
             checkpoint = torch.load(state_fpath)
-            init_step = checkpoint["step"]
-            model.load_state_dict(checkpoint["model_state"])
-            optimizer.load_state_dict(checkpoint["optimizer_state"])
-            optimizer.param_groups[0]["lr"] = cfgs.model.learning_rate_init
+            model.load_state_dict(checkpoint, strict=False)
         else:
             print("No model \"%s\" found, starting training from scratch." % run_id)
     else:
