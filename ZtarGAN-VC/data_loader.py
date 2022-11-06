@@ -56,7 +56,7 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     
     # embedding 뽑기
     y = rearrange(torch.tensor(y), "b c l -> b l c").to(device)
-    emb = enc(y)
+    emb = enc(y).numpy()
     
     return emb
 
