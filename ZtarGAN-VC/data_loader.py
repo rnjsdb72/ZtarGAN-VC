@@ -5,6 +5,7 @@ from os.path import join, basename
 import numpy as np
 from speaker_encoder.encoder.model import SpeakerEncoder
 from tqdm import tqdm
+from einops import rearrange
 
 min_length = 0  # Since we slice 256 frames from each utterance when training.
 
@@ -51,9 +52,10 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     enc = SpeakerEncoder(device, device, cfg_speaker_encoder.config)
     
     # ckpt 입력
-    enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=device))
+    enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=device)['model_state'], strict=False)
     
     # embedding 뽑기
+    y = rearrange(torch.tensor(y), "b c l -> b l c").to(device)
     emb = enc(y)
     
     return emb
