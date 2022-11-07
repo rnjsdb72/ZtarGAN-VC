@@ -25,8 +25,6 @@ def main(config, speakers):
         os.makedirs(config.directories.model_save_dir)
     if not os.path.exists(config.directories.sample_dir):
         os.makedirs(config.directories.sample_dir)
-        
-    num_speakers = len(speakers)
 
     # TODO: remove hard coding of 'test' speakers
     if config.dataset == 'Aidatatang-200zh':
@@ -45,7 +43,7 @@ def main(config, speakers):
     test_loader = TestDataset(speakers, config.speaker_encoder, config.directories.test_data_dir, config.directories.wav_dir, src_spk=src_spk, trg_spk=trg_spk)
 
     # Solver for training and testing StarGAN.
-    solver = Solver(train_loader, test_loader, num_speakers, config.speaker_encoder.config.model.model_embedding_size, config)
+    solver = Solver(train_loader, test_loader, speakers, config.speaker_encoder.config.model.model_embedding_size, config)
 
     if config.miscellaneous.mode == 'train':
         solver.train()

@@ -19,8 +19,9 @@ from torch.utils.tensorboard import SummaryWriter
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
-    def __init__(self, train_loader, test_loader, num_speakers, emb_size, config):
+    def __init__(self, train_loader, test_loader, speakers, emb_size, config):
         """Initialize configurations."""
+        self.config = config
 
         # Data loader.
         self.train_loader = train_loader
@@ -29,7 +30,8 @@ class Solver(object):
         self.cfg_speaker_encoder = config.speaker_encoder
 
         # Model configurations.
-        self.num_speakers = num_speakers
+        self.idx2spk = dict(zip(range(len(speakers)), speakers))
+        self.num_speakers = len(speakers)
         self.emb_size = emb_size
         self.lambda_rec = config.model.lambda_rec
         self.lambda_gp = config.model.lambda_gp
@@ -145,8 +147,10 @@ class Solver(object):
         spk_c = np.random.randint(0, self.num_speakers, size=size)
         embs = []
         for spk in spk_c:
-            spk_emb = to_embedding(spk, self.cfg_speaker_encoder)
-            embs.append(spk_emb[0].tolist())
+            spk_name = self.idx2spk[spk]
+            utt = np.load(glob(f'{self.config.directories.train_data_dir}/*{spk_name}*')[0]).T
+            spk_emb = to_embedding(utt, self.cfg_speaker_encoder)
+            embs.append(spk_emb)
         spk_c_cat = to_categorical(spk_c, self.num_speakers)
         return torch.LongTensor(spk_c), torch.FloatTensor(embs), torch.FloatTensor(spk_c_cat)
 

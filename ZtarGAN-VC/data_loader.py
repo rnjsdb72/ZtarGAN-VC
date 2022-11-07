@@ -2,11 +2,13 @@ from torch.utils import data
 import torch
 import glob
 from os.path import join, basename
+import sys
 import numpy as np
 from speaker_encoder.encoder.model import SpeakerEncoder
 from tqdm import tqdm
+from speaker_encoder.encoder import audio
 
-min_length = 128  # Since we slice 256 frames from each utterance when training.
+min_length = 256  # Since we slice 256 frames from each utterance when training.
 
 def to_categorical(y, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
@@ -34,6 +36,120 @@ def to_categorical(y, num_classes=None):
     categorical = np.reshape(categorical, output_shape)
     return categorical
 
+def embed_frames_batch(frames_batch, _model):
+    """
+    Computes embeddings for a batch of mel spectrogram.
+    
+    :param frames_batch: a batch mel of spectrogram as a numpy array of float32 of shape 
+    (batch_size, n_frames, n_channels)
+    :return: the embeddings as a numpy array of float32 of shape (batch_size, model_embedding_size)
+    """
+    if _model is None:
+        raise Exception("Model was not loaded. Call load_model() before inference.")
+    
+    frames = torch.from_numpy(frames_batch).to('cpu').float()
+    embed = _model.forward(frames[0]).detach().cpu().numpy()
+    return embed
+
+
+def compute_partial_slices(n_samples, args,
+                           min_pad_coverage=0.75, overlap=0.5):
+    """
+    Computes where to split an utterance waveform and its corresponding mel spectrogram to obtain 
+    partial utterances of <partial_utterance_n_frames> each. Both the waveform and the mel 
+    spectrogram slices are returned, so as to make each partial utterance waveform correspond to 
+    its spectrogram. This function assumes that the mel spectrogram parameters used are those 
+    defined in params_data.py.
+    
+    The returned ranges may be indexing further than the length of the waveform. It is 
+    recommended that you pad the waveform with zeros up to wave_slices[-1].stop.
+    
+    :param n_samples: the number of samples in the waveform
+    :param partial_utterance_n_frames: the number of mel spectrogram frames in each partial 
+    utterance
+    :param min_pad_coverage: when reaching the last partial utterance, it may or may not have 
+    enough frames. If at least <min_pad_coverage> of <partial_utterance_n_frames> are present, 
+    then the last partial utterance will be considered, as if we padded the audio. Otherwise, 
+    it will be discarded, as if we trimmed the audio. If there aren't enough frames for 1 partial 
+    utterance, this parameter is ignored so that the function always returns at least 1 slice.
+    :param overlap: by how much the partial utterance should overlap. If set to 0, the partial 
+    utterances are entirely disjoint. 
+    :return: the waveform slices and mel spectrogram slices as lists of array slices. Index 
+    respectively the waveform and the mel spectrogram with these slices to obtain the partial 
+    utterances.
+    """
+    assert 0 <= overlap < 1
+    assert 0 < min_pad_coverage <= 1
+    
+    partial_utterance_n_frames = args.audio.partials_n_frames
+    samples_per_frame = int((args.audio.sampling_rate * args.mel.mel_window_step / 1000))
+    n_frames = int(np.ceil((n_samples + 1) / samples_per_frame))
+    frame_step = max(int(np.round(partial_utterance_n_frames * (1 - overlap))), 1)
+
+    # Compute the slices
+    wav_slices, mel_slices = [], []
+    steps = max(1, n_frames - partial_utterance_n_frames + frame_step + 1)
+    for i in range(0, steps, frame_step):
+        mel_range = np.array([i, i + partial_utterance_n_frames])
+        wav_range = mel_range * samples_per_frame
+        mel_slices.append(slice(*mel_range))
+        wav_slices.append(slice(*wav_range))
+        
+    # Evaluate whether extra padding is warranted or not
+    last_wav_range = wav_slices[-1]
+    coverage = (n_samples - last_wav_range.start) / (last_wav_range.stop - last_wav_range.start)
+    if coverage < min_pad_coverage and len(mel_slices) > 1:
+        mel_slices = mel_slices[:-1]
+        wav_slices = wav_slices[:-1]
+    
+    return wav_slices, mel_slices
+
+def embed_utterance(wav, _model, args, using_partials=True, return_partials=False, **kwargs):
+    """
+    Computes an embedding for a single utterance.
+    
+    # TODO: handle multiple wavs to benefit from batching on GPU
+    :param wav: a preprocessed (see audio.py) utterance waveform as a numpy array of float32
+    :param using_partials: if True, then the utterance is split in partial utterances of 
+    <partial_utterance_n_frames> frames and the utterance embedding is computed from their 
+    normalized average. If False, the utterance is instead computed from feeding the entire 
+    spectogram to the network.
+    :param return_partials: if True, the partial embeddings will also be returned along with the 
+    wav slices that correspond to the partial embeddings.
+    :param kwargs: additional arguments to compute_partial_splits()
+    :return: the embedding as a numpy array of float32 of shape (model_embedding_size,). If 
+    <return_partials> is True, the partial utterances as a numpy array of float32 of shape 
+    (n_partials, model_embedding_size) and the wav partials as a list of slices will also be 
+    returned. If <using_partials> is simultaneously set to False, both these values will be None 
+    instead.
+    """
+    # Process the entire utterance if not using partials
+    if not using_partials:
+        #frames = audio.wav_to_mel_spectrogram(wav)
+        embed = embed_frames_batch(wav[None, ...], _model)[0]
+        if return_partials:
+            return embed, None, None
+        return embed
+    
+    # Compute where to split the utterance into partials and pad if necessary
+    wave_slices, mel_slices = compute_partial_slices(len(wav), args.config.data, **kwargs)
+    #max_wave_length = wave_slices[-1].stop
+    #if max_wave_length >= len(wav):
+    #    wav = np.pad(wav, (0, max_wave_length - len(wav)), "constant")
+    
+    # Split the utterance into partials
+    #frames = audio.wav_to_mel_spectrogram(wav)
+    frames_batch = np.array([wav[s] for s in mel_slices])
+    partial_embeds = embed_frames_batch(frames_batch, _model)
+    
+    # Compute the utterance embedding from the partial embeddings
+    raw_embed = np.mean(partial_embeds, axis=0)
+    embed = raw_embed / np.linalg.norm(raw_embed, 2)
+    
+    if return_partials:
+        return embed, partial_embeds, wave_slices
+    return embed
+
 def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
     E.g. for use with categorical_crossentropy.
@@ -53,19 +169,13 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
     
     # ckpt 입력
     enc.load_state_dict(torch.load(cfg_speaker_encoder.ckpt_path, map_location=device)['model_state'], strict=False)
-    
+
     # embedding 뽑기
-    y_ = torch.tensor(y)
-    if len(y_.shape) == 3:
-        y = y_.to(device)
-        emb = enc(y).cpu().detach().numpy()
-    elif len(y_.shape) == 2:
-        y = torch.tensor([y]).to(device)
-        emb = enc(y).cpu().detach().numpy()
-    else:
-        return np.empty([1, 256])
-    
-    return emb
+    y_ = y.copy()
+    y = np.array([y])
+    embed = embed_utterance(y, enc, cfg_speaker_encoder)
+
+    return embed
 
 
 class MyDataset(data.Dataset):
@@ -114,7 +224,8 @@ class MyDataset(data.Dataset):
         spk = basename(filename).split('_')[0]
         spk_idx = self.spk2idx[spk]
         mc_ = np.load(filename).T
-        mc = self.sample_seg(mc_)
+        mc = mc_.copy()
+        mc = self.sample_seg(mc)
         mc = np.transpose(mc, (1, 0))  # (T, D) -> (D, T), since pytorch need feature having shape
         # to one-hot
         spk_emb = np.squeeze(to_embedding(mc_, self.cfg_speaker_encoder, num_classes=len(self.speakers)))
@@ -157,8 +268,8 @@ class TestDataset(object):
             self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0]).T
             self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0]).T
 
-        spk_emb_src = to_embedding([self.src_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
-        spk_emb_trg = to_embedding([self.trg_mc], cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_src = to_embedding(self.src_mc, cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_trg = to_embedding(self.trg_mc, cfg_speaker_encoder, num_classes=len(self.speakers))
         spk_cat_src = to_categorical([self.spk_idx_src], num_classes=len(self.speakers))
         spk_cat_trg = to_categorical([self.spk_idx_trg], num_classes=len(self.speakers))
         self.spk_emb_src = spk_emb_src
