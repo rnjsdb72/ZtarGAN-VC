@@ -148,7 +148,7 @@ class Solver(object):
         embs = []
         for spk in spk_c:
             spk_name = self.idx2spk[spk]
-            utt = np.load(glob(f'{self.config.directories.train_data_dir}/*{spk_name}*')[0]).T
+            utt = np.load(glob(f'{self.config.directories.train_data_dir}/*{spk_name}*.npy')[0]).T
             spk_emb = to_embedding(utt, self.cfg_speaker_encoder)
             embs.append(spk_emb)
         spk_c_cat = to_categorical(spk_c, self.num_speakers)
