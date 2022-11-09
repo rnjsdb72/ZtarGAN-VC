@@ -1,4 +1,6 @@
 import argparse
+import json
+from collections import namedtuple
 from model import Generator
 from torch.autograd import Variable
 import torch
@@ -8,40 +10,29 @@ import os
 from os.path import join, basename, dirname, split
 import time
 import datetime
-from data_loader import to_categorical
+from data_loader import to_categorical, to_embedding
 import librosa
 from utils import *
 import glob
 
-# Below is the accent info for the used 10 speakers.
-spk2acc = {'262': 'Edinburgh', #F
-           '272': 'Edinburgh', #M
-           '229': 'SouthEngland', #F 
-           '232': 'SouthEngland', #M
-           '292': 'NorthernIrishBelfast', #M 
-           '293': 'NorthernIrishBelfast', #F 
-           '360': 'AmericanNewJersey', #M
-           '361': 'AmericanNewJersey', #F
-           '248': 'India', #F
-           '251': 'India'} #M
-
-speakers = ['p262', 'p272', 'p229', 'p232', 'p292', 'p293', 'p360', 'p361', 'p248', 'p251']
-spk2idx = dict(zip(speakers, range(len(speakers))))
-
 class TestDataset(object):
     """Dataset for testing."""
-    def __init__(self, config):
-        assert config.trg_spk in speakers, f'The trg_spk should be chosen from {speakers}, but you choose {trg_spk}.'
-        # Source speaker
-        self.src_spk = config.src_spk
-        self.trg_spk = config.trg_spk
 
-        self.mc_files = sorted(glob.glob(join(config.test_data_dir, f'{config.src_spk}*.npy')))
-        self.src_spk_stats = np.load(join(config.train_data_dir, f'{config.src_spk}_stats.npz'))
-        self.src_wav_dir = f'{config.wav_dir}/{config.src_spk}'
+    def __init__(self, speakers_using, config):
+        self.speakers = speakers_using
+        self.spk2idx = dict(zip(self.speakers, range(len(self.speakers))))
+        self.prefix_length = len(self.speakers[0])
 
-        
-        self.trg_spk_stats = np.load(join(config.train_data_dir, f'{config.trg_spk}_stats.npz'))
+        data_dir = config.directories.test_data_dir
+        wav_dir = config.directories.wav_dir
+        src_spk = config.model.src_spk
+        trg_spk = config.model.trg_spk
+        self.src_spk = src_spk
+        self.trg_spk = trg_spk
+        self.mc_files = sorted(glob.glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
+
+        self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk).replace('*', '')))
+        self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk).replace('*', '')))
 
         self.logf0s_mean_src = self.src_spk_stats['log_f0s_mean']
         self.logf0s_std_src = self.src_spk_stats['log_f0s_std']
@@ -51,20 +42,35 @@ class TestDataset(object):
         self.mcep_std_src = self.src_spk_stats['coded_sps_std']
         self.mcep_mean_trg = self.trg_spk_stats['coded_sps_mean']
         self.mcep_std_trg = self.trg_spk_stats['coded_sps_std']
+        self.src_wav_dir = f'{wav_dir}/{src_spk}'
+        self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
+        self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
         
-        self.spk_idx = spk2idx[config.trg_spk]
-        spk_cat = to_categorical([self.spk_idx], num_classes=len(speakers))
-        self.spk_c_trg = spk_cat
+        try:
+            self.src_mc = np.load(self.src_wav_dir).T
+            self.trg_mc = np.load(self.trg_wav_dir).T
+        except:
+            self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0]).T
+            self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0]).T
 
+        cfg_speaker_encoder = config.speaker_encoder
+        spk_emb_src = to_embedding(self.src_mc, cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_emb_trg = to_embedding(self.trg_mc, cfg_speaker_encoder, num_classes=len(self.speakers))
+        spk_cat_src = to_categorical([self.spk_idx_src], num_classes=len(self.speakers))
+        spk_cat_trg = to_categorical([self.spk_idx_trg], num_classes=len(self.speakers))
+        self.spk_emb_src = spk_emb_src
+        self.spk_emb_trg = spk_emb_trg
+        self.spk_c_org = spk_cat_src
+        self.spk_c_trg = spk_cat_trg
 
-    def get_batch_test_data(self, batch_size=4):
+    def get_batch_test_data(self, batch_size=8):
         batch_data = []
         for i in range(batch_size):
-            mcfile = self.mc_files[i]
-            filename = basename(mcfile).split('-')[-1]
+            mc_file = self.mc_files[i]
+            filename = basename(mc_file).split('-')[-1]
             wavfile_path = join(self.src_wav_dir, filename.replace('npy', 'wav'))
             batch_data.append(wavfile_path)
-        return batch_data 
+        return batch_data
 
 
 def load_wav(wavfile, sr=16000):
@@ -72,20 +78,20 @@ def load_wav(wavfile, sr=16000):
     return wav_padding(wav, sr=sr, frame_period=5, multiple = 4)  # TODO
     # return wav
 
-def test(config):
-    os.makedirs(join(config.convert_dir, str(config.resume_iters)), exist_ok=True)
+def test(speakers, config):
+    os.makedirs(join(config.directoreis.convert_dir, str(config.model.resume_iters)), exist_ok=True)
     sampling_rate, num_mcep, frame_period=16000, 36, 5
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     G = Generator().to(device)
-    test_loader = TestDataset(config)
+    test_loader = TestDataset(speakers, config)
     # Restore model
-    print(f'Loading the trained models from step {config.resume_iters}...')
-    G_path = join(config.model_save_dir, f'{config.resume_iters}-G.ckpt')
+    print(f'Loading the trained models from step {config.model.resume_iters}...')
+    G_path = join(config.directoreis.model_save_dir, f'{config.model.resume_iters}-G.ckpt')
     G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
 
     # Read a batch of testdata
-    test_wavfiles = test_loader.get_batch_test_data(batch_size=config.num_converted_wavs)
+    test_wavfiles = test_loader.get_batch_test_data(batch_size=config.model.num_converted_wavs)
     test_wavs = [load_wav(wavfile, sampling_rate) for wavfile in test_wavfiles]
 
     with torch.no_grad():
@@ -110,36 +116,32 @@ def test(config):
             wav_transformed = world_speech_synthesis(f0=f0_converted, coded_sp=coded_sp_converted, 
                                                     ap=ap, fs=sampling_rate, frame_period=frame_period)
             wav_id = wav_name.split('.')[0]
-            librosa.output.write_wav(join(config.convert_dir, str(config.resume_iters),
+            librosa.output.write_wav(join(config.directoreis.convert_dir, str(config.model.resume_iters),
                 f'{wav_id}-vcto-{test_loader.trg_spk}.wav'), wav_transformed, sampling_rate)
             if [True, False][0]:
                 wav_cpsyn = world_speech_synthesis(f0=f0, coded_sp=coded_sp, 
                                                 ap=ap, fs=sampling_rate, frame_period=frame_period)
-                librosa.output.write_wav(join(config.convert_dir, str(config.resume_iters), f'cpsyn-{wav_name}'), wav_cpsyn, sampling_rate)
+                librosa.output.write_wav(join(config.directoreis.convert_dir, str(config.model.resume_iters), f'cpsyn-{wav_name}'), wav_cpsyn, sampling_rate)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model configuration.
-    parser.add_argument('--num_speakers', type=int, default=10, help='dimension of speaker labels')
-    parser.add_argument('--num_converted_wavs', type=int, default=8, help='number of wavs to convert.')
-    parser.add_argument('--resume_iters', type=int, default=None, help='step to resume for testing.')
-    parser.add_argument('--src_spk', type=str, default='p262', help = 'target speaker.')
-    parser.add_argument('--trg_spk', type=str, default='p272', help = 'target speaker.')
-
-    # Directories.
-    parser.add_argument('--train_data_dir', type=str, default='./data/mc/train')
-    parser.add_argument('--test_data_dir', type=str, default='./data/mc/test')
-    parser.add_argument('--wav_dir', type=str, default="./data/VCTK-Corpus/wav16")
-    parser.add_argument('--log_dir', type=str, default='./logs')
-    parser.add_argument('--model_save_dir', type=str, default='./models')
-    parser.add_argument('--convert_dir', type=str, default='./converted')
-
+    parser.add_argument('cfg')
 
     config = parser.parse_args()
     
+    with open(config.cfg, 'r') as f:
+        config = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
+        
+    # no. of spks
+    if config.dataset == 'Aidatatang-200zh':
+        speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*.npz'))))
+    else:
+        speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*'))))
+    
     print(config)
-    if config.resume_iters is None:
+    if config.model.resume_iters is None:
         raise RuntimeError("Please specify the step number for resuming.")
-    test(config)
+    test(speakers, config)
