@@ -3,6 +3,11 @@ import librosa
 import numpy as np
 import os
 import pyworld
+import json
+import hifigan
+import torch
+from scipy.io import wavfile
+import matplotlib.pyplot as plt
 
 def arg_parse():
     parser = argparse.ArgumentParser()
@@ -13,6 +18,99 @@ def arg_parse():
 def load_wav(wav_file, sr):
     wav, _ = librosa.load(wav_file, sr=sr, mono=True)
     return wav
+
+def get_vocoder(config, device):
+    name = config.vocoder.model
+    speaker = config.vocoder.speaker
+
+    if name == "MelGAN":
+        if speaker == "LJSpeech":
+            vocoder = torch.hub.load(
+                "descriptinc/melgan-neurips", "load_melgan", "linda_johnson"
+            )
+        elif speaker == "universal":
+            vocoder = torch.hub.load(
+                "descriptinc/melgan-neurips", "load_melgan", "multi_speaker"
+            )
+        vocoder.mel2wav.eval()
+        vocoder.mel2wav.to(device)
+    elif name == "HiFi-GAN":
+        with open("./hifigan/config.json", "r") as f:
+            config = json.load(f)
+        config = hifigan.AttrDict(config)
+        vocoder = hifigan.Generator(config)
+        ckpt = torch.load(f"./hifigan/generator_{speaker}.pth.tar", map_location=torch.device(device))
+        vocoder.load_state_dict(ckpt["generator"])
+        vocoder.eval()
+        vocoder.remove_weight_norm()
+        vocoder.to(device)
+
+    return vocoder
+
+
+def vocoder_infer(mels, vocoder, config, lengths=None):
+    name = config.vocoder.model
+    with torch.no_grad():
+        if name == "MelGAN":
+            wavs = vocoder.inverse(mels / np.log(10))
+        elif name == "HiFi-GAN":
+            wavs = vocoder(mels).squeeze(1)
+
+    wavs = (
+        wavs.cpu().numpy()
+        * config.preprocessing.audio.max_wav_value
+    ).astype("int16")
+    wavs = [wav for wav in wavs]
+
+    for i in range(len(mels)):
+        if lengths is not None:
+            wavs[i] = wavs[i][: lengths[i]]
+
+    return wavs
+
+def synth_samples(wav_name, predictions, vocoder, config, path):
+
+    basenames = wav_name[0]
+    mel_len = [mel.shape[0] for mel in predictions]
+
+    mel_predictions = predictions.squeeze(1)
+    mel_predictions = mel_predictions.transpose(1, 2)
+    lengths = mel_len * config.preprocessing.stft.hop_length
+    wav_predictions = vocoder_infer(
+        mel_predictions, vocoder, config, lengths=lengths
+    )
+
+    fig = plot_mel(
+            mel_predictions.cpu().numpy(),
+            ["Converted Spectrogram"],
+        )
+    plt.savefig(os.path.join(path, "{}.png".format(basenames)))
+    plt.close()
+    
+    sampling_rate = config.preprocessing.audio.sampling_rate
+    for wav, basename in zip(wav_predictions, basenames):
+        wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
+
+def plot_mel(data, titles):
+    fig, axes = plt.subplots(len(data), 1, squeeze=False)
+    if titles is None:
+        titles = [None for i in range(len(data))]
+
+    def add_axis(fig, old_ax):
+        ax = fig.add_axes(old_ax.get_position(), anchor="W")
+        ax.set_facecolor("None")
+        return ax
+
+    for i in range(len(data)):
+        mel = data[i]
+        axes[i][0].imshow(mel, origin="lower")
+        axes[i][0].set_aspect(2.5, adjustable="box")
+        axes[i][0].set_ylim(0, mel.shape[0])
+        axes[i][0].set_title(titles[i], fontsize="medium")
+        axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
+        axes[i][0].set_anchor("W")
+
+    return fig
 
 def world_decompose(wav, fs, frame_period = 5.0):
     # Decompose speech signal into f0, spectral envelope and aperiodicity using WORLD

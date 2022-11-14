@@ -196,7 +196,7 @@ class MyDataset(data.Dataset):
         self.mc_files = self.rm_too_short_utt(mc_files)
         self.num_files = len(self.mc_files)
         print("\t Number of training samples: ", self.num_files)
-        for f in self.mc_files:
+        for f in tqdm(self.mc_files):
             mc = np.load(f).T
             if mc.shape[0] <= min_length:
                 print(f)

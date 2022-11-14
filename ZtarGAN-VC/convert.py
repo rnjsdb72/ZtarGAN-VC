@@ -13,7 +13,10 @@ import datetime
 from data_loader import to_categorical, to_embedding
 import librosa
 from utils import *
-import glob
+from glob import glob
+
+import audio as Audio
+from preprocess import get_mel_from_wav
 
 class TestDataset(object):
     """Dataset for testing."""
@@ -29,7 +32,7 @@ class TestDataset(object):
         trg_spk = config.model.trg_spk
         self.src_spk = src_spk
         self.trg_spk = trg_spk
-        self.mc_files = sorted(glob.glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
+        self.mc_files = sorted(glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
 
         self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk).replace('*', '')))
         self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk).replace('*', '')))
@@ -50,8 +53,10 @@ class TestDataset(object):
             self.src_mc = np.load(self.src_wav_dir).T
             self.trg_mc = np.load(self.trg_wav_dir).T
         except:
-            self.src_mc = np.load(glob.glob(self.src_wav_dir+'*')[0]).T
-            self.trg_mc = np.load(glob.glob(self.trg_wav_dir+'*')[0]).T
+            print(glob(self.src_wav_dir + "/*.npy"))
+            print(glob(self.trg_wav_dir + "/*.npy"))
+            self.src_mc = np.load(glob(self.src_wav_dir + "/*.npy")[0]).T
+            self.trg_mc = np.load(glob(self.trg_wav_dir + "/*.npy")[0]).T
 
         cfg_speaker_encoder = config.speaker_encoder
         spk_emb_src = to_embedding(self.src_mc, cfg_speaker_encoder, num_classes=len(self.speakers))
@@ -72,6 +77,15 @@ class TestDataset(object):
             batch_data.append(wavfile_path)
         return batch_data
 
+    def get_batch_test_npy_data(self, batch_size=8):
+        batch_data = []
+        for i in range(batch_size):
+            mc_file = self.mc_files[i]
+            filename = basename(mc_file).split('-')[-1]
+            wavfile_path = join(self.src_wav_dir, filename)
+            batch_data.append(wavfile_path)
+        return batch_data
+
 
 def load_wav(wavfile, sr=16000):
     wav, _ = librosa.load(wavfile, sr=sr, mono=True)
@@ -79,7 +93,7 @@ def load_wav(wavfile, sr=16000):
     # return wav
 
 def test(speakers, config):
-    os.makedirs(join(config.directoreis.convert_dir, str(config.model.resume_iters)), exist_ok=True)
+    os.makedirs(join(config.directories.convert_dir, str(config.model.resume_iters)), exist_ok=True)
     sampling_rate, num_mcep, frame_period=16000, 36, 5
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -87,41 +101,35 @@ def test(speakers, config):
     test_loader = TestDataset(speakers, config)
     # Restore model
     print(f'Loading the trained models from step {config.model.resume_iters}...')
-    G_path = join(config.directoreis.model_save_dir, f'{config.model.resume_iters}-G.ckpt')
+    G_path = join(config.directories.model_save_dir, f'{config.model.resume_iters}-G.ckpt')
     G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
 
     # Read a batch of testdata
-    test_wavfiles = test_loader.get_batch_test_data(batch_size=config.model.num_converted_wavs)
-    test_wavs = [load_wav(wavfile, sampling_rate) for wavfile in test_wavfiles]
+    #test_wavfiles = test_loader.get_batch_test_data(batch_size=config.model.num_converted_wavs)
+    test_wavfiles = test_loader.get_batch_test_npy_data(batch_size=config.model.num_converted_wavs)
+    #test_wavs = [load_wav(wavfile, sampling_rate) for wavfile in test_wavfiles]
+    test_wavs = test_wavfiles.copy()
+
+
+
+    STFT = Audio.stft.TacotronSTFT(
+                config.preprocessing.stft.filter_length,
+                config.preprocessing.stft.hop_length,
+                config.preprocessing.stft.win_length,
+                config.preprocessing.mel.n_mel_channels,
+                config.preprocessing.audio.sampling_rate,
+                config.preprocessing.mel.mel_fmin,
+                config.preprocessing.mel.mel_fmax,
+            )
 
     with torch.no_grad():
         for idx, wav in enumerate(test_wavs):
-            print(len(wav))
             wav_name = basename(test_wavfiles[idx])
-            # print(wav_name)
-            f0, timeaxis, sp, ap = world_decompose(wav=wav, fs=sampling_rate, frame_period=frame_period)
-            f0_converted = pitch_conversion(f0=f0, 
-                mean_log_src=test_loader.logf0s_mean_src, std_log_src=test_loader.logf0s_std_src, 
-                mean_log_target=test_loader.logf0s_mean_trg, std_log_target=test_loader.logf0s_std_trg)
-            coded_sp = world_encode_spectral_envelop(sp=sp, fs=sampling_rate, dim=num_mcep)
-            print("Before being fed into G: ", coded_sp.shape)
-            coded_sp_norm = (coded_sp - test_loader.mcep_mean_src) / test_loader.mcep_std_src
-            coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(device)
-            spk_conds = torch.FloatTensor(test_loader.spk_c_trg).to(device)
-            # print(spk_conds.size())
-            coded_sp_converted_norm = G(coded_sp_norm_tensor, spk_conds).data.cpu().numpy()
-            coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * test_loader.mcep_std_trg + test_loader.mcep_mean_trg
-            coded_sp_converted = np.ascontiguousarray(coded_sp_converted)
-            print("After being fed into G: ", coded_sp_converted.shape)
-            wav_transformed = world_speech_synthesis(f0=f0_converted, coded_sp=coded_sp_converted, 
-                                                    ap=ap, fs=sampling_rate, frame_period=frame_period)
-            wav_id = wav_name.split('.')[0]
-            librosa.output.write_wav(join(config.directoreis.convert_dir, str(config.model.resume_iters),
-                f'{wav_id}-vcto-{test_loader.trg_spk}.wav'), wav_transformed, sampling_rate)
-            if [True, False][0]:
-                wav_cpsyn = world_speech_synthesis(f0=f0, coded_sp=coded_sp, 
-                                                ap=ap, fs=sampling_rate, frame_period=frame_period)
-                librosa.output.write_wav(join(config.directoreis.convert_dir, str(config.model.resume_iters), f'cpsyn-{wav_name}'), wav_cpsyn, sampling_rate)
+            mel_spectrogram = torch.FloatTensor([test_loader.src_mc]).unsqueeze(1).to(device)
+            spk_conds = torch.FloatTensor([test_loader.spk_emb_trg]).to(device)
+            coded_sp_converted_norm = G(mel_spectrogram, spk_conds).data
+            vocoder = get_vocoder(config, device)
+            synth_samples(wav_name, coded_sp_converted_norm, vocoder, config, config.directories.convert_dir)
 
 
 if __name__ == '__main__':

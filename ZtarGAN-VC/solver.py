@@ -13,6 +13,7 @@ from data_loader import to_categorical, to_embedding
 import librosa
 from utils import *
 from tqdm import tqdm
+from glob import glob
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -21,6 +22,7 @@ class Solver(object):
 
     def __init__(self, train_loader, test_loader, speakers, emb_size, config):
         """Initialize configurations."""
+
         self.config = config
 
         # Data loader.
@@ -169,7 +171,8 @@ class Solver(object):
 
         # Read a batch of testdata
         test_wavfiles = self.test_loader.get_batch_test_data(batch_size=4)
-        test_wavs = [self.load_wav(wavfile) for wavfile in test_wavfiles]
+        #test_wavs = [self.load_wav(wavfile) for wavfile in test_wavfiles]
+        test_wavs = test_wavfiles.copy()
 
         # Determine whether do copysynthesize when first do training-time conversion test.
         cpsyn_flag = [True, False][0]
@@ -218,6 +221,7 @@ class Solver(object):
             spk_emb_trg = spk_emb_trg.to(self.device)
             spk_c_trg = spk_c_trg.to(self.device)                     # Target spk conditioning.
 
+
             # =================================================================================== #
             #                             2. Train the discriminator                              #
             # =================================================================================== #
@@ -228,7 +232,7 @@ class Solver(object):
             d_loss_cls_spks = self.classification_loss(out_cls_spks, spk_label_org)
             
 
-            # Compute loss with fake mc feats.
+            # Compute loss with fake mc feats.  
             mc_fake = self.G(mc_real, spk_emb_trg)
             out_src, out_cls_spks = self.D(mc_fake.detach())
             d_loss_fake = torch.mean(out_src)
@@ -293,37 +297,17 @@ class Solver(object):
                 self.log_loss_tensorboard(loss, i+1)
 
             if (i+1) % self.sample_step == 0:
-                sampling_rate=16000
                 num_mcep=36
                 frame_period=5
                 with torch.no_grad():
                     for idx, wav in tqdm(enumerate(test_wavs)):
                         wav_name = basename(test_wavfiles[idx])
-                        # print(wav_name)
-                        f0, timeaxis, sp, ap = world_decompose(wav=wav, fs=sampling_rate, frame_period=frame_period)
-                        f0_converted = pitch_conversion(f0=f0, 
-                            mean_log_src=self.test_loader.logf0s_mean_src, std_log_src=self.test_loader.logf0s_std_src, 
-                            mean_log_target=self.test_loader.logf0s_mean_trg, std_log_target=self.test_loader.logf0s_std_trg)
-                        coded_sp = world_encode_spectral_envelop(sp=sp, fs=sampling_rate, dim=num_mcep)
-                        
-                        coded_sp_norm = (coded_sp - self.test_loader.mcep_mean_src) / self.test_loader.mcep_std_src
-                        coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(self.device)
-                        conds = torch.FloatTensor(self.test_loader.spk_emb_trg).to(self.device)
-                        # print(conds.size())
-                        coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
-                        coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * self.test_loader.mcep_std_trg + self.test_loader.mcep_mean_trg
-                        coded_sp_converted = np.ascontiguousarray(coded_sp_converted)
-                        # decoded_sp_converted = world_decode_spectral_envelop(coded_sp = coded_sp_converted, fs = sampling_rate)
-                        wav_transformed = world_speech_synthesis(f0=f0_converted, coded_sp=coded_sp_converted, 
-                                                                ap=ap, fs=sampling_rate, frame_period=frame_period)
-                        
-                        librosa.output.write_wav(
-                            join(self.sample_dir, str(i+1)+'-'+wav_name.split('.')[0]+'-vcto-{}'.format(self.test_loader.trg_spk)+'.wav'), wav_transformed, sampling_rate)
-                        if cpsyn_flag:
-                            wav_cpsyn = world_speech_synthesis(f0=f0, coded_sp=coded_sp, 
-                                                        ap=ap, fs=sampling_rate, frame_period=frame_period)
-                            librosa.output.write_wav(join(self.sample_dir, 'cpsyn-'+wav_name), wav_cpsyn, sampling_rate)
-                    cpsyn_flag = False
+                        mel_spectrogram = torch.FloatTensor([self.test_loader.src_mc]).unsqueeze(1).to(self.device)
+                        spk_conds = torch.FloatTensor([self.test_loader.spk_emb_trg]).to(self.device)
+                        coded_sp_converted_norm = self.G(mel_spectrogram, spk_conds).data
+                        vocoder = get_vocoder(self.config, self.device)
+                        synth_samples(wav_name, coded_sp_converted_norm, vocoder, self.config,
+                            join(self.sample_dir, str(i+1)+'-'+wav_name.split('.')[0]+'-vcto-{}'.format(self.test_loader.trg_spk)+'.wav'))
 
             # Save model checkpoints.
             if (i+1) % self.model_save_step == 0:
@@ -339,5 +323,3 @@ class Solver(object):
                 d_lr -= (self.d_lr / float(self.num_iters_decay))
                 self.update_lr(g_lr, d_lr)
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
-
-
