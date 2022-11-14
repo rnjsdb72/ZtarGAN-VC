@@ -72,6 +72,9 @@ def synth_samples(wav_name, predictions, vocoder, config, path):
 
     basenames = wav_name[0]
     mel_len = [mel.shape[0] for mel in predictions]
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
 
     mel_predictions = predictions.squeeze(1)
     mel_predictions = mel_predictions.transpose(1, 2)
