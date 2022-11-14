@@ -9,6 +9,10 @@
         "lambda_cls":10,
         "sampling_rate":48000
     },
+    "vocoder": {
+        "model": "HiFi-GAN",
+        "speaker": "universal"
+    },
     "train":{
         "batch_size":32,
         "num_iters":200000,
@@ -37,8 +41,8 @@
     },
     "step":{
         "log_step":10,
-        "sample_step":10000,
-        "model_save_step":1000,
+        "sample_step":1000,
+        "model_save_step":100,
         "lr_update_step":1000
     },
     "speaker_encoder":{
