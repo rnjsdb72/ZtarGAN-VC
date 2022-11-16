@@ -1,21 +1,42 @@
 {
+    "dataset":"aihub",
     "model":{
-        "num_converted_wavs":8,
-        "resume_iters":500,
-        "src_spk":"p262",
-        "trg_spk":"p272"
+        "num_converted_wavs":1,
+        "resume_iters":6000,
+        "src_spk":"0027",
+        "trg_spk":"0347"
     },
     "directories":{
         "train_data_dir":"../../preprocessed_data/mel_train",
         "test_data_dir":"../../preprocessed_data/mel_test",
-        "wav_dir":"../../preprocessed_data/mel_train",
+        "wav_dir":"../../wav",
         "log_dir":"./output/log",
         "model_save_dir":"./output/ckpt",
-        "convert_dir":"./converted"
+        "convert_dir":"./converted/6000step"
+    },
+    "vocoder": {
+        "model": "HiFi-GAN",
+        "speaker": "universal"
+    },
+    "preprocessing":{
+        "audio":{
+            "sampling_rate": 22050,
+            "max_wav_value": 32768.0
+        },
+        "stft": {
+            "filter_length": 1024,
+            "hop_length": 256,
+            "win_length": 1024
+        },
+        "mel":{
+            "n_mel_channels":80,
+            "mel_fmin":0,
+            "mel_fmax":8000
+        }
     },
     "speaker_encoder":{
         "encoder":"lstm",
-        "ckpt_path":"../../ckpt/se_step-3000000.pt",
+        "ckpt_path":"../../ckpt/se_1300_aihub.pt",
         "config":{
             "model":{
                 "model_hidden_size": 256,
@@ -27,12 +48,12 @@
             },
             "data":{
                 "mel":{
-                    "mel_window_length": 25,
-                    "mel_window_step": 10,
-                    "mel_n_channels": 40
+                    "mel_window_length": 1024,
+                    "mel_window_step": 256,
+                    "mel_n_channels": 80
                 },
                 "audio":{
-                    "sampling_rate": 16000,
+                    "sampling_rate": 44100,
                     "partials_n_frames": 160,
                     "inference_n_frames": 80,
                     "audio_norm_target_dBFS": -30

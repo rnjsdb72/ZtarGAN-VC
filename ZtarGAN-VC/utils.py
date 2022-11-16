@@ -72,20 +72,20 @@ def synth_samples(wav_name, predictions, vocoder, config, path):
 
     basenames = wav_name[0]
     mel_len = [mel.shape[0] for mel in predictions]
-    
+
     if not os.path.exists(path):
         os.makedirs(path)
 
     mel_predictions = predictions.squeeze(1)
     mel_predictions = mel_predictions.transpose(1, 2)
-    lengths = mel_len * config.preprocessing.stft.hop_length
+    #lengths = mel_len * config.preprocessing.stft.hop_length
     wav_predictions = vocoder_infer(
-        mel_predictions, vocoder, config, lengths=lengths
+        mel_predictions, vocoder, config, lengths=None
     )
-
+    
+    data_fig = [mel_predictions.cpu().numpy().squeeze(0)]+[wav for wav in wav_predictions]
     fig = plot_mel(
-            mel_predictions.cpu().numpy(),
-            ["Converted Spectrogram"],
+            data_fig, ["Converted Spectrogram", "Converted WAV"],
         )
     plt.savefig(os.path.join(path, "{}.png".format(basenames)))
     plt.close()
@@ -106,12 +106,16 @@ def plot_mel(data, titles):
 
     for i in range(len(data)):
         mel = data[i]
-        axes[i][0].imshow(mel, origin="lower")
-        axes[i][0].set_aspect(2.5, adjustable="box")
-        axes[i][0].set_ylim(0, mel.shape[0])
+        if len(mel.shape) < 2:
+            axes[i][0].plot(mel)
+        else:
+            axes[i][0].imshow(mel, origin="lower")
+            axes[i][0].set_aspect(2.5, adjustable="box")
+            axes[i][0].set_ylim(0, mel.shape[0])
         axes[i][0].set_title(titles[i], fontsize="medium")
         axes[i][0].tick_params(labelsize="x-small", left=False, labelleft=False)
         axes[i][0].set_anchor("W")
+        plt.tight_layout()
 
     return fig
 
