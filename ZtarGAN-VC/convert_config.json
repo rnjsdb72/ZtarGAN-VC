@@ -53,7 +53,7 @@
                     "mel_n_channels": 80
                 },
                 "audio":{
-                    "sampling_rate": 44100,
+                    "sampling_rate": 22050,
                     "partials_n_frames": 160,
                     "inference_n_frames": 80,
                     "audio_norm_target_dBFS": -30

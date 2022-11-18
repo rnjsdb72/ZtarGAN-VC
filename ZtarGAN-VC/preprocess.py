@@ -65,19 +65,6 @@ def resample_to_xk(sampling_rate, origin_wavpath, target_wavpath, num_workers=1)
 
     return None
 
-
-def get_sampling_rate(file_name):
-    """
-    Get the sampling rate of a wav file.
-    :param file_name: wav file path
-    :return: frame rate of wav file
-    """
-    with wave.open(file_name, 'rb') as wave_file:
-        sample_rate = wave_file.getframerate()
-
-    return sample_rate
-
-
 def split_data(paths):
     """
     Split path data into train test split.
@@ -111,6 +98,21 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     :param sample_rate: frame rate of wav files
     :return: None
     """
+    #f0s = []
+    #coded_sps = []
+    #for wav_file in spk_paths:
+    #    f0, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
+    #    f0s.append(f0)
+    #    coded_sps.append(coded_sp)
+
+    #log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
+    #coded_sps_mean, coded_sps_std = coded_sp_statistics(coded_sps)
+
+    #np.savez(join(output_dir, spk_name + '_stats.npz'),
+    #         log_f0s_mean=log_f0s_mean,
+    #         log_f0s_std=log_f0s_std,
+    #         coded_sps_mean=coded_sps_mean,
+    #         coded_sps_std=coded_sps_std)
     
     STFT = Audio.stft.TacotronSTFT(
             config.Mel_preprocess.stft.filter_length,
@@ -132,7 +134,7 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     return None
 
 
-def process_spk(spk_path, mc_dir, config):
+def process_spk(spk_path, mc_dir, sample_rate, config):
     """
     Prcoess speaker wavs to Mels
     :param spk_path: path to speaker wav dir
@@ -142,7 +144,6 @@ def process_spk(spk_path, mc_dir, config):
     spk_paths = glob.glob(join(spk_path, '*.wav'))
 
     # find the sampling rate of teh wav files you are about to convert
-    sample_rate = get_sampling_rate(spk_paths[0])
 
     spk_name = basename(spk_path)
 
@@ -151,7 +152,7 @@ def process_spk(spk_path, mc_dir, config):
     return None
 
 
-def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test, config):
+def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test, sample_rate, config):
     """
     Perform train test split on a speaker and process wavs to Mels.
     :param spk_path: path to speaker wav dir
@@ -165,7 +166,6 @@ def process_spk_with_split(spk_path, mc_dir_train, mc_dir_test, config):
         return None
     
     # find the samplng rate of the wav files you are about to convert
-    sample_rate = get_sampling_rate(spk_paths[0])
 
     spk_name = basename(spk_path)
     train_paths, test_paths = split_data(spk_paths)
@@ -192,6 +192,7 @@ if __name__ == '__main__':
     target_wavpath_eval = cfgs.data_split.target_wavpath_eval
     mc_dir_train = cfgs.Mel_preprocess.mel_dir_train
     mc_dir_test = cfgs.Mel_preprocess.mel_dir_test
+    sample_rate = cfgs.Mel_preprocess.audio.sampling_rate
 
     # Do resample.
     if perform_data_split == 'n':
@@ -215,20 +216,20 @@ if __name__ == '__main__':
         working_train_dir = target_wavpath_train
         for spk in tqdm(speakers):
             spk_dir = os.path.join(working_train_dir, spk)
-            process_spk(spk_dir, mc_dir_train, cfgs)
+            process_spk(spk_dir, mc_dir_train, sample_rate, cfgs)
 
         # current wavs working with (eval)
         working_eval_dir = target_wavpath_eval
         for spk in tqdm(speakers):
             spk_dir = os.path.join(working_eval_dir, spk)
-            process_spk(spk_dir, mc_dir_test, cfgs)
+            process_spk(spk_dir, mc_dir_test, sample_rate, cfgs)
     else:
         # current wavs we are working with (all for data split)
         working_dir = target_wavpath
         outer_bar = tqdm(speakers, position=0)
         for spk in outer_bar:
             spk_dir = os.path.join(working_dir, spk)
-            process_spk_with_split(spk_dir, mc_dir_train, mc_dir_test, cfgs)
+            process_spk_with_split(spk_dir, mc_dir_train, mc_dir_test, sample_rate, cfgs)
     
     print('Completed!')
 

@@ -25,7 +25,7 @@
             "mel_fmax":8000
         },
         "audio":{
-            "sampling_rate":44100
+            "sampling_rate":22050
         }
     }
 }
