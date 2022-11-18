@@ -33,18 +33,7 @@ class TestDataset(object):
         self.src_spk = src_spk
         self.trg_spk = trg_spk
         self.mc_files = sorted(glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
-
-        self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk).replace('*', '')))
-        self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk).replace('*', '')))
-
-        self.logf0s_mean_src = self.src_spk_stats['log_f0s_mean']
-        self.logf0s_std_src = self.src_spk_stats['log_f0s_std']
-        self.logf0s_mean_trg = self.trg_spk_stats['log_f0s_mean']
-        self.logf0s_std_trg = self.trg_spk_stats['log_f0s_std']
-        self.mcep_mean_src = self.src_spk_stats['coded_sps_mean']
-        self.mcep_std_src = self.src_spk_stats['coded_sps_std']
-        self.mcep_mean_trg = self.trg_spk_stats['coded_sps_mean']
-        self.mcep_std_trg = self.trg_spk_stats['coded_sps_std']
+        
         self.src_wav_dir = f'{wav_dir}/{src_spk}'
         self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
         self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
@@ -111,7 +100,6 @@ def test(speakers, config):
     test_wavs = test_wavfiles.copy()
 
 
-
     STFT = Audio.stft.TacotronSTFT(
                 config.preprocessing.stft.filter_length,
                 config.preprocessing.stft.hop_length,
@@ -127,9 +115,9 @@ def test(speakers, config):
             wav_name = basename(test_wavfiles[idx])
             mel_spectrogram = torch.FloatTensor([test_loader.src_mc]).unsqueeze(1).to(device)
             spk_conds = torch.FloatTensor([test_loader.spk_emb_trg]).to(device)
-            coded_sp_converted_norm = G(mel_spectrogram, spk_conds).data
+            converted = G(mel_spectrogram, spk_conds).data
             vocoder = get_vocoder(config, device)
-            synth_samples(wav_name, coded_sp_converted_norm, vocoder, config, config.directories.convert_dir)
+            synth_samples(wav_name, converted, vocoder, config, config.directories.convert_dir)
 
 
 if __name__ == '__main__':

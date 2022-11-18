@@ -119,51 +119,6 @@ def plot_mel(data, titles):
 
     return fig
 
-def world_decompose(wav, fs, frame_period = 5.0):
-    # Decompose speech signal into f0, spectral envelope and aperiodicity using WORLD
-    wav = wav.astype(np.float64)
-    f0, timeaxis = pyworld.harvest(wav, fs, frame_period = frame_period, f0_floor = 71.0, f0_ceil = 800.0)
-    sp = pyworld.cheaptrick(wav, f0, timeaxis, fs)
-    ap = pyworld.d4c(wav, f0, timeaxis, fs)
-    return f0, timeaxis, sp, ap
-
-def world_encode_spectral_envelop(sp, fs, dim=36):
-    # Get Mel-cepstral coefficients (MCEPs)
-    #sp = sp.astype(np.float64)
-    coded_sp = pyworld.code_spectral_envelope(sp, fs, dim)
-    return coded_sp
-
-def world_decode_spectral_envelop(coded_sp, fs):
-    # Decode Mel-cepstral to sp
-    fftlen = pyworld.get_cheaptrick_fft_size(fs)
-    decoded_sp = pyworld.decode_spectral_envelope(coded_sp, fs, fftlen)
-    return decoded_sp
-
-def world_encode_wav(wav_file, fs, frame_period=5.0, coded_dim=36):
-    wav = load_wav(wav_file, sr=fs)
-    f0, timeaxis, sp, ap = world_decompose(wav=wav, fs=fs, frame_period=frame_period)
-    coded_sp = world_encode_spectral_envelop(sp = sp, fs = fs, dim = coded_dim)
-    return f0, timeaxis, sp, ap, coded_sp
-
-def world_speech_synthesis(f0, coded_sp, ap, fs, frame_period):
-    decoded_sp = world_decode_spectral_envelop(coded_sp, fs)
-    # TODO
-    min_len = min([len(f0), len(coded_sp), len(ap)])
-    f0 = f0[:min_len]
-    coded_sp = coded_sp[:min_len]
-    ap = ap[:min_len]
-    wav = pyworld.synthesize(f0, decoded_sp, ap, fs, frame_period)
-    # Librosa could not save wav if not doing so
-    wav = wav.astype(np.float32)
-    return wav
-
-def world_synthesis_data(f0s, coded_sps, aps, fs, frame_period):
-    wavs = list()
-    for f0, decoded_sp, ap in zip(f0s, coded_sps, aps):
-        wav = world_speech_synthesis(f0, coded_sp, ap, fs, frame_period)
-        wavs.append(wav)
-    return wavs
-
 def coded_sps_normalization_fit_transoform(coded_sps):
     coded_sps_concatenated = np.concatenate(coded_sps, axis = 1)
     coded_sps_mean = np.mean(coded_sps_concatenated, axis = 1, keepdims = True)

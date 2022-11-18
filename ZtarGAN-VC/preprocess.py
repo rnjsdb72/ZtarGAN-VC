@@ -111,21 +111,6 @@ def get_spk_mel_feats(spk_name, spk_paths, output_dir, sample_rate, config):
     :param sample_rate: frame rate of wav files
     :return: None
     """
-    f0s = []
-    coded_sps = []
-    for wav_file in spk_paths:
-        f0, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
-        f0s.append(f0)
-        coded_sps.append(coded_sp)
-
-    log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
-    coded_sps_mean, coded_sps_std = coded_sp_statistics(coded_sps)
-
-    np.savez(join(output_dir, spk_name + '_stats.npz'),
-             log_f0s_mean=log_f0s_mean,
-             log_f0s_std=log_f0s_std,
-             coded_sps_mean=coded_sps_mean,
-             coded_sps_std=coded_sps_std)
     
     STFT = Audio.stft.TacotronSTFT(
             config.Mel_preprocess.stft.filter_length,
@@ -212,13 +197,13 @@ if __name__ == '__main__':
     if perform_data_split == 'n':
         if resample_rate > 0:
             print(f'Resampling speakers in {origin_wavpath_train} to {target_wavpath_train} at {resample_rate}')
-            resample_to_xk(resample_rate, origin_wavpath_train, target_wavpath_train, num_workers)
+            resample_to_xk(resample_rate, origin_wavpath_train, target_wavpath_train)
             print(f'Resampling speakers in {origin_wavpath_eval} to {target_wavpath_eval} at {resample_rate}')
-            resample_to_xk(resample_rate, origin_wavpath_eval, target_wavpath_eval, num_workers)
+            resample_to_xk(resample_rate, origin_wavpath_eval, target_wavpath_eval)
     else:
         if resample_rate > 0:
             print(f'Resampling speakers in {origin_wavpath} to {target_wavpath} at {resample_rate}')
-            resample_to_xk(resample_rate, origin_wavpath, target_wavpath, num_workers)
+            resample_to_xk(resample_rate, origin_wavpath, target_wavpath)
 
     print('Making directories for Mels...')
     os.makedirs(mc_dir_train, exist_ok=True)
