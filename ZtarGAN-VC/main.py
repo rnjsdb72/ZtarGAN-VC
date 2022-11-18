@@ -55,10 +55,7 @@ if __name__ == '__main__':
         config = json.load(f, object_hook=lambda d: namedtuple('x', d.keys())(*d.values()))
 
     # no. of spks
-    if config.dataset == 'Aidatatang-200zh':
-        speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*.npz'))))
-    else:
-        speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*'))))
+    speakers = list(set(map(lambda x: x.split('/')[-1].split('_')[0], glob(config.directories.train_data_dir+'/*'))))
 
     if len(speakers) < 2:
         raise RuntimeError("Need at least 2 speakers to convert audio.")
