@@ -9,34 +9,6 @@ import json
 from collections import namedtuple
 from tqdm import tqdm
 
-def make_spk_meta():
-    call_dir = '../../raw_data/json/call'
-    random_dir = '../../raw_data/json/random'
-    continuous_dir = '../../raw_data/json/continuous'
-    common_dir = '../../raw_data/json/common'
-
-    dir_list = [call_dir, random_dir, continuous_dir,common_dir]
-    id_sex_dict = dict()
-    for i in dir_list:
-        try:
-            for j in os.listdir(i): # 각 날짜 출력
-                path_ = os.path.join(i,j)       
-                for k in os.listdir(path_):   # 날짜 안에 들어있는 id_list
-                    json_path = os.listdir(os.path.join(path_,k))[0] # id list 까지의 데이터
-                    with open(os.path.join(os.path.join(path_,k) ,json_path),'r') as f:
-                        json_data = json.load(f)
-                        sex = json_data['Speaker']['Gender'][0]
-                    id_sex_dict[k] = sex
-        except:
-            pass
-    dict_pkl = dict()
-    for key, value in id_sex_dict.items():
-        dict_pkl[key] = (key,value)
-    if not os.path.exists('../../preprocessed_data'):
-        os.makedirs('../../preprocessed_data')
-    with open('../../preprocessed_data/spk_meta.pkl', 'wb') as f:
-        pickle.dump(dict_pkl, f, pickle.HIGHEST_PROTOCOL)
-
 def move_wav():
     call_dir = '../../raw_data/raw_wav/call'
     random_dir = '../../raw_data/raw_wav/random'
@@ -74,8 +46,6 @@ if __name__ == "__main__":
     with open(args.cfgs, 'r') as f:
         cfgs = json.load(f, object_hook = lambda d: namedtuple('x', d.keys())(*d.values()))
 
-    print('Make Speaker Meta Data...')
-    make_spk_meta()
     move_wav()
     print('Rename wav file as Format...')
     wav_name()
