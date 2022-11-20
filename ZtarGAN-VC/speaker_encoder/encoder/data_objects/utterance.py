@@ -7,7 +7,7 @@ class Utterance:
         self.wave_fpath = wave_fpath
         
     def get_frames(self):
-        return np.load(self.frames_fpath)
+        return np.load(self.frames_fpath, allow_pickle=True)
 
     def random_partial(self, n_frames):
         """
