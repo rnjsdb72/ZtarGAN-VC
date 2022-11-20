@@ -62,6 +62,7 @@ def train(cfgs):
             print("Found existing model \"%s\", loading it and resuming training." % run_id)
             checkpoint = torch.load(state_fpath)
             model.load_state_dict(checkpoint, strict=False)
+            init_step = checkpoint['step']
         else:
             print("No model \"%s\" found, starting training from scratch." % run_id)
     else:
