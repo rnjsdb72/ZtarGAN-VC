@@ -245,21 +245,6 @@ class TestDataset(object):
         self.src_spk = src_spk
         self.trg_spk = trg_spk
         self.mc_files = sorted(glob.glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
-
-        self.src_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(src_spk).replace('*', '')))
-        self.trg_spk_stats = np.load(join(data_dir.replace('test', 'train'), '{}_stats.npz'.format(trg_spk).replace('*', '')))
-
-        self.logf0s_mean_src = self.src_spk_stats['log_f0s_mean']
-        self.logf0s_std_src = self.src_spk_stats['log_f0s_std']
-        self.logf0s_mean_trg = self.trg_spk_stats['log_f0s_mean']
-        self.logf0s_std_trg = self.trg_spk_stats['log_f0s_std']
-        self.mcep_mean_src = self.src_spk_stats['coded_sps_mean']
-        self.mcep_std_src = self.src_spk_stats['coded_sps_std']
-        self.mcep_mean_trg = self.trg_spk_stats['coded_sps_mean']
-        self.mcep_std_trg = self.trg_spk_stats['coded_sps_std']
-        self.src_wav_dir = f'{wav_dir}/{src_spk}'
-        self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
-        self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
         
         try:
             self.src_mc = np.load(self.src_wav_dir).T
