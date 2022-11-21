@@ -190,9 +190,9 @@ class MyDataset(data.Dataset):
 
         mc_files = glob.glob(join(data_dir, '*.npy'))
         if not self.prefix:
-            mc_files = [i for i in mc_files if basename(i)[:self.prefix_length] in self.speakers]
+            mc_files = [i for i in tqdm(mc_files) if basename(i)[:self.prefix_length] in self.speakers]
         else:
-            mc_files = mc_files = [i for i in mc_files if basename(i)[self.prefix[0]:self.prefix[1]] in self.speakers]
+            mc_files = mc_files = [i for i in tqdm(mc_files) if basename(i)[self.prefix[0]:self.prefix[1]] in self.speakers]
         self.mc_files = self.rm_too_short_utt(mc_files)
         self.num_files = len(self.mc_files)
         print("\t Number of training samples: ", self.num_files)
@@ -245,6 +245,10 @@ class TestDataset(object):
         self.src_spk = src_spk
         self.trg_spk = trg_spk
         self.mc_files = sorted(glob.glob(join(data_dir, '{}*.npy'.format(self.src_spk))))
+        
+        self.src_wav_dir = f'{wav_dir}/{src_spk}'
+        self.trg_wav_dir = f'{wav_dir}/{trg_spk}'
+        self.spk_idx_src, self.spk_idx_trg = self.spk2idx[src_spk.replace('*', '')], self.spk2idx[trg_spk.replace('*', '')]
         
         try:
             self.src_mc = np.load(self.src_wav_dir).T
