@@ -1,7 +1,7 @@
 {
-    "src_spk":"G0002",
-    "trg_spk":"G7072",
-    "prefix":[5,10],
+    "src_spk":"2634",
+    "trg_spk":"4022",
+    "prefix":null,
     "model":{
         "lambda_rec":10,
         "lambda_gp":10,
@@ -56,13 +56,13 @@
     },
     "step":{
         "log_step":10,
-        "sample_step":1000,
+        "sample_step":100,
         "model_save_step":100,
         "lr_update_step":1000
     },
     "speaker_encoder":{
         "encoder":"lstm",
-        "ckpt_path":"../../ckpt/se_step-3000000.pt",
+        "ckpt_path":"../../ckpt/speaker_encoder_000720.pt",
         "config":{
             "model":{
                 "model_hidden_size": 256,
