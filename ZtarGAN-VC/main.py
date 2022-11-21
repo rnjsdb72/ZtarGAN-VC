@@ -27,12 +27,8 @@ def main(config, speakers):
         os.makedirs(config.directories.sample_dir)
 
     # TODO: remove hard coding of 'test' speakers
-    if config.dataset == 'Aidatatang-200zh':
-        src_spk = '*' + config.src_spk
-        trg_spk = '*' + config.trg_spk
-    else:
-        src_spk = config.src_spk
-        trg_spk = config.trg_spk
+    src_spk = config.src_spk
+    trg_spk = config.trg_spk
 
     num_workers_ = config.miscellaneous.num_workers if config.miscellaneous.num_workers is not None else cpu_count()
     
