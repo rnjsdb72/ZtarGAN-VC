@@ -2,7 +2,6 @@ import argparse
 import librosa
 import numpy as np
 import os
-import pyworld
 import json
 import hifigan
 import torch
