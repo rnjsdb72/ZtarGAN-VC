@@ -150,16 +150,15 @@ def embed_utterance(wav, _model, args, using_partials=True, return_partials=Fals
         return embed, partial_embeds, wave_slices
     return embed
 
-def to_embedding(y, cfg_speaker_encoder, num_classes=None):
-    """Converts a class vector (integers) to binary class matrix.
+def to_embedding(y, cfg_speaker_encoder):
+    """Converts a Mel Spectrogram to Embedding Vector using Speaker Encoder.
     E.g. for use with categorical_crossentropy.
     # Arguments
-        y: class vector to be converted into a matrix
+        y: Mel Spectrogram to be converted into a Embedding Vector
             (integers from 0 to num_classes).
         num_classes: total number of classes.
     # Returns
-        A binary matrix representation of the input. The classes axis
-        is placed last.
+        A Embedding Vector of the input.
     From Keras np_utils
     """
     device = torch.device('cpu')
@@ -179,7 +178,7 @@ def to_embedding(y, cfg_speaker_encoder, num_classes=None):
 
 
 class MyDataset(data.Dataset):
-    """Dataset for MCEP features and speaker labels."""
+    """Dataset for Mel Spectrogram features and speaker labels."""
 
     def __init__(self, speakers_using, cfg_speaker_encoder, data_dir, prefix):
         self.prefix = prefix
